@@ -20,6 +20,8 @@ target/
 .springBeans
 .sts4-cache
 
+.m2/
+
 ### IntelliJ IDEA ###
 .idea
 *.iws
@@ -38,3 +40,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets ###
+.env
