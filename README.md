@@ -12,7 +12,8 @@ What works today:
 - `GET /actuator/health` (Spring Boot Actuator health)
 - Spring Security is enabled:
   - health endpoints are public
-  - other endpoints currently use **HTTP Basic** (temporary, will be replaced by API-key auth)
+  - other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`) and return JSON `401` when missing/invalid
+- `GET /protected/ping` (protected smoke-test endpoint for API-key auth)
 
 Milestone 1 target:
 
@@ -66,7 +67,7 @@ curl -i localhost:8080/healthz
 curl -i localhost:8080/actuator/health
 ```
 
-Note: health endpoints are public. Other endpoints are currently protected by **HTTP Basic**; this will switch to `X-API-Key` as part of Milestone 1.
+Note: health endpoints are public. Other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`).
 
 ## Configuration
 
@@ -85,6 +86,20 @@ Note: health endpoints are public. Other endpoints are currently protected by **
 
 - `GET /healthz` → `200 OK` with a simple body (`OK`)
 - `GET /actuator/health` → `200 OK` with Actuator health JSON
+- `GET /protected/ping` → `200 OK` with body `pong` (requires `X-API-Key`)
+
+### API key auth (curl examples)
+
+```bash
+# Missing key -> 401 JSON
+curl -i localhost:8080/protected/ping
+
+# Wrong key -> 401 JSON
+curl -i -H 'X-API-Key: wrong' localhost:8080/protected/ping
+
+# Correct key -> 200 pong
+curl -i -H "X-API-Key: $JANUS_API_KEY" localhost:8080/protected/ping
+```
 
 ## API (Milestone 1 target)
 
