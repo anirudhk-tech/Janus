@@ -6,7 +6,7 @@ Please **do not** open a public GitHub issue for security vulnerabilities.
 
 Instead, email:
 
-- `security@TODO` (replace with a real address before announcing the project)
+- `anirudhkuppili.dev@gmail.com`
 
 Include:
 
