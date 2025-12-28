@@ -14,10 +14,10 @@ What works today:
   - health endpoints are public
   - other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`) and return JSON `401` when missing/invalid
 - `GET /protected/ping` (protected smoke-test endpoint for API-key auth)
+- `POST /query` (protected; validates input and returns a stubbed JSON response with a `traceId`)
 
 Milestone 1 target:
 
-- `POST /query` (API-key secured)
 - Deterministic planner → `ExecutionPlan`
 - Parallel execution across connectors (M1: Postgres + REST)
 - Explainable JSON response (plan + timings + per-step errors)
@@ -87,6 +87,7 @@ Note: health endpoints are public. Other endpoints require `X-API-Key` (validate
 - `GET /healthz` → `200 OK` with a simple body (`OK`)
 - `GET /actuator/health` → `200 OK` with Actuator health JSON
 - `GET /protected/ping` → `200 OK` with body `pong` (requires `X-API-Key`)
+- `POST /query` → `200 OK` with a stubbed JSON response (requires `X-API-Key`)
 
 ### API key auth (curl examples)
 
@@ -101,10 +102,51 @@ curl -i -H 'X-API-Key: wrong' localhost:8080/protected/ping
 curl -i -H "X-API-Key: $JANUS_API_KEY" localhost:8080/protected/ping
 ```
 
+### `POST /query` (current stub)
+
+Request body (minimal):
+
+```json
+{
+  "question": "hello"
+}
+```
+
+Example:
+
+```bash
+curl -i -X POST localhost:8080/query \
+  -H "X-API-Key: $JANUS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"hello"}'
+```
+
+Response (example):
+
+```json
+{
+  "traceId": "0d76ddc6-5bf8-4f8d-91d1-f6cfb6abbcfb",
+  "answer": "Not implemented yet",
+  "data": {},
+  "explanation": {
+    "plan": [],
+    "execution": [],
+    "merge": "pending"
+  }
+}
+```
+
+Validation notes:
+
+- If `question` is missing/blank, the API returns `400` with a small JSON body containing `field_errors`.
+- If you `POST /query` without a JSON body, Spring may route the failure through `/error`; since `/error` is protected, you can see a confusing `401` with `"path":"/error"`. Easiest fix in curl: always send `Content-Type: application/json` and a body (even `{}`) while testing.
+
 ## API (Milestone 1 target)
 
-- `POST /query`
-  - Auth header: `X-API-Key: <key>` (validated against `JANUS_API_KEY`)
+- `/query` will evolve from today’s stub into the full M1 behavior:
+  - deterministic planner output included in `explanation.plan`
+  - parallel execution across connectors with per-step timings/errors in `explanation.execution`
+  - deterministic merge rules and merged results in `data`
 
 ## Project structure
 
@@ -137,7 +179,7 @@ make test
 
 ## Roadmap
 
-- **M1**: API-key secured `/query`, deterministic planning, Postgres + REST connectors, parallel federation, explainable response
+- **M1**: API-key secured `/query` (contract + stub shipped), deterministic planning, Postgres + REST connectors, parallel federation, explainable response
 - **M2**: multi-step plans, caching, improved merge rules
 - **M3**: governance (tenants, per-tenant connector policies, audit log)
 - **M4**: LLM-backed planner behind `QueryAgent` with safety guardrails
