@@ -39,6 +39,13 @@ class QueryControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.traceId").exists())
             .andExpect(jsonPath("$.traceId").isNotEmpty())
-            .andExpect(jsonPath("$.answer").exists());
+            .andExpect(jsonPath("$.answer").value("planned")) 
+            .andExpect(jsonPath("$.explanation.plan.steps").isArray())
+            .andExpect(jsonPath("$.explanation.plan.steps.length()").value(2))
+            .andExpect(jsonPath("$.explanation.plan.steps[0].type").value("sql"))
+            .andExpect(jsonPath("$.explanation.plan.steps[0].sql").exists())
+            .andExpect(jsonPath("$.explanation.plan.steps[1].type").value("http"))
+            .andExpect(jsonPath("$.explanation.plan.steps[1].method").value("GET"))
+            .andExpect(jsonPath("$.explanation.plan.steps[1].url").exists());
     }
 }
