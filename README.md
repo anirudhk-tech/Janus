@@ -15,12 +15,13 @@ What works today:
   - other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`) and return JSON `401` when missing/invalid
 - `GET /protected/ping` (protected smoke-test endpoint for API-key auth)
 - `POST /query` (protected; validates input and returns an explicit `ExecutionPlan` under `explanation.plan` (plan-only, no execution yet))
+- Connector + federation scaffolding exists in-code (mock connectors + a federation executor), but is not yet wired into `/query`
 
 Milestone 1 target:
 
 - Deterministic planner → `ExecutionPlan` (shipped: plan-only)
-- Parallel execution across connectors (M1: Postgres + REST)
-- Explainable JSON response (plan + timings + per-step errors)
+- Parallel execution across connectors (M1: Postgres + REST) (in progress: mocks + executor skeleton)
+- Explainable JSON response (plan + timings + per-step errors) (in progress)
 
 ## Architecture (M1)
 
