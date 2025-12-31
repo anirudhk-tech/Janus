@@ -12,7 +12,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "JANUS_API_KEY=test-key")
+@SpringBootTest(properties = {
+    "JANUS_API_KEY=test-key",
+    "janus.agent.mode=rule_based"
+})
 @AutoConfigureMockMvc
 class QueryControllerTest {
 

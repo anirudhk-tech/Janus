@@ -4,6 +4,7 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import io.github.anirudhk_tech.janus.api.QueryRequest;
@@ -15,6 +16,7 @@ import io.github.anirudhk_tech.janus.plan.SqlQueryStep;
 // Mock implementation of the QueryAgent interface.
 
 @Service
+@ConditionalOnProperty(name = "janus.agent.mode", havingValue = "rule_based", matchIfMissing = true)
 public class RuleBasedQueryAgent implements QueryAgent {
 
     @Override
