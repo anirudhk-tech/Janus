@@ -1,5 +1,6 @@
 package io.github.anirudhk_tech.janus.federation;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +14,8 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
 
 import io.github.anirudhk_tech.janus.connectors.Connector;
+import io.github.anirudhk_tech.janus.connectors.ConnectorException;
+import io.github.anirudhk_tech.janus.connectors.ConnectorResult;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
 import io.github.anirudhk_tech.janus.plan.PlanStep;
 
@@ -64,5 +67,36 @@ public class FederationExecutor {
         return results;
     }
 
-    // Todo: executeOne, etc
+    private CompletableFuture<StepExecutionResult> executeOne(PlanStep step, ExecutionContext context) {
+        return CompletableFuture.supplyAsync(() -> {
+            Instant start = context.now();
+            try {
+                if (context.isExpired()) {
+                    long durationMs = Duration.between(start, context.now()).toMillis();
+                    return new StepExecutionResult(step.stepId(), step.connector(), StepExecutionStatus.TIMEOUT, durationMs, null, "deadline_exceeded");
+                }
+
+                Connector connector = findConnector(step);
+                ConnectorResult out = connector.execute(step, context);
+                long durationMs = Duration.between(start, context.now()).toMillis();
+                return new StepExecutionResult(out.stepId(), out.connector(), StepExecutionStatus.SUCCESS, durationMs, out.data(), null);
+            } catch (ConnectorException e) {
+                long durationMs = Duration.between(start, context.now()).toMillis();
+                return new StepExecutionResult(step.stepId(), step.connector(), StepExecutionStatus.FAILURE, durationMs, null, e.getMessage());
+            } catch (Exception e) {
+                long durationMs = Duration.between(start, context.now()).toMillis();
+                return new StepExecutionResult(step.stepId(), step.connector(), StepExecutionStatus.FAILURE, durationMs, null, "internal_error");
+            }
+        }, executor);
+    }
+
+    private Connector findConnector(PlanStep step) {
+        for (Connector c : connectors) {
+            if (c.name().equals(step.connector()) && c.supports(step)) {
+                return c;
+            }
+        }
+
+        throw new FederationExecutionException("No connector found for step: stepId=" + step.stepId() + ", connector=" + step.connector());
+    }
 }

@@ -39,7 +39,7 @@ class QueryControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.traceId").exists())
             .andExpect(jsonPath("$.traceId").isNotEmpty())
-            .andExpect(jsonPath("$.answer").value("planned")) 
+            .andExpect(jsonPath("$.answer").value("executed"))
             .andExpect(jsonPath("$.explanation.plan.steps").isArray())
             .andExpect(jsonPath("$.explanation.plan.steps.length()").value(2))
             .andExpect(jsonPath("$.explanation.plan.steps[0].type").value("sql"))

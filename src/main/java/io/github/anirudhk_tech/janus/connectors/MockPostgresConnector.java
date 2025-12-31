@@ -4,10 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.springframework.stereotype.Service;
+
 import io.github.anirudhk_tech.janus.federation.ExecutionContext;
 import io.github.anirudhk_tech.janus.plan.PlanStep;
 import io.github.anirudhk_tech.janus.plan.SqlQueryStep;
 
+@Service
 public final class MockPostgresConnector implements Connector {
     public static final String CONNECTOR_NAME = "postgres";
 

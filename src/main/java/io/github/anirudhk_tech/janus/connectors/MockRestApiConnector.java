@@ -4,10 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.springframework.stereotype.Service;
+
 import io.github.anirudhk_tech.janus.federation.ExecutionContext;
 import io.github.anirudhk_tech.janus.plan.HttpRequestStep;
 import io.github.anirudhk_tech.janus.plan.PlanStep;
 
+@Service
 public final class MockRestApiConnector implements Connector {
     public static final String CONNECTOR_NAME = "rest";
 

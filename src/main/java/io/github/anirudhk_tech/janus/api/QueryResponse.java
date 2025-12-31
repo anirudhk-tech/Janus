@@ -3,6 +3,7 @@ package io.github.anirudhk_tech.janus.api;
 import java.util.List;
 import java.util.Map;
 
+import io.github.anirudhk_tech.janus.federation.StepExecutionResult;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
 
 public record QueryResponse (
@@ -13,6 +14,6 @@ public record QueryResponse (
 ) {
     public record Explanation (
         ExecutionPlan plan,
-        List<Object> execution
+        List<StepExecutionResult> execution
     ) {}
 }
