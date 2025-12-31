@@ -40,7 +40,7 @@ public class GeminiLlmClient implements LlmClient {
 
         try {
             GeminiGenerateContentResponse response = restClient.post()
-                .uri("/v1/models/{model}:generateContent", props.getGemini().getModel())
+                .uri("/v1beta/models/{model}:generateContent", props.getGemini().getModel())
                 .header("x-goog-api-key", apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
@@ -98,21 +98,20 @@ public class GeminiLlmClient implements LlmClient {
     }
 
     record GeminiGenerateContentRequest(
-        Content systemInstruction,
+        // Content systemPrompt,
         List<Content> contents,
         GenerationConfig generationConfig
     ) {
         static GeminiGenerateContentRequest forPrompts(String systemPrompt, String userPrompt) {
-            Content sys = Content.system(systemPrompt);
+            // Content sys = Content.system(systemPrompt);
             Content user = Content.user(userPrompt);
-            GenerationConfig cfg = new GenerationConfig(0.0, "application/json");
-            return new GeminiGenerateContentRequest(sys, List.of(user), cfg);
+            GenerationConfig cfg = new GenerationConfig(0.0);
+            return new GeminiGenerateContentRequest(List.of(user), cfg);
         }
     }
 
     record GenerationConfig(
-        double temperature,
-        String responseMimeType
+        double temperature
     ) {}
 
     record Content(

@@ -23,7 +23,7 @@ public class LlmProperties {
     public static final class Gemini {
 
         private URI baseUrl = URI.create("https://generativelanguage.googleapis.com");
-        private String model = "gemini-1.5-flash";
+        private String model = "gemini-2.0-flash";
         private String apiKey;
 
         public URI getBaseUrl() { return baseUrl; }
