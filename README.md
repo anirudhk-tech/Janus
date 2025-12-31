@@ -14,13 +14,12 @@ What works today:
   - health endpoints are public
   - other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`) and return JSON `401` when missing/invalid
 - `GET /protected/ping` (protected smoke-test endpoint for API-key auth)
-- `POST /query` (protected; validates input and returns an explicit `ExecutionPlan` under `explanation.plan` (plan-only, no execution yet))
-- Connector + federation scaffolding exists in-code (mock connectors + a federation executor), but is not yet wired into `/query`
+- `POST /query` (protected; builds an explicit `ExecutionPlan`, executes it via mock connectors, and returns `data.sources` + `explanation.execution`)
 
 Milestone 1 target:
 
-- Deterministic planner → `ExecutionPlan` (shipped: plan-only)
-- Parallel execution across connectors (M1: Postgres + REST) (in progress: mocks + executor skeleton)
+- Deterministic planner → `ExecutionPlan` (shipped)
+- Parallel execution across connectors (M1: Postgres + REST) (shipped: mock connectors)
 - Explainable JSON response (plan + timings + per-step errors) (in progress)
 
 ## Architecture (M1)
@@ -88,7 +87,7 @@ Note: health endpoints are public. Other endpoints require `X-API-Key` (validate
 - `GET /healthz` → `200 OK` with a simple body (`OK`)
 - `GET /actuator/health` → `200 OK` with Actuator health JSON
 - `GET /protected/ping` → `200 OK` with body `pong` (requires `X-API-Key`)
-- `POST /query` → `200 OK` with a plan-only JSON response that includes an explicit `ExecutionPlan` (requires `X-API-Key`)
+- `POST /query` → `200 OK` with plan + execution + data (currently via mock Postgres + mock REST connectors) (requires `X-API-Key`)
 
 ### API key auth (curl examples)
 
@@ -103,7 +102,7 @@ curl -i -H 'X-API-Key: wrong' localhost:8080/protected/ping
 curl -i -H "X-API-Key: $JANUS_API_KEY" localhost:8080/protected/ping
 ```
 
-### `POST /query` (current: plan-only)
+### `POST /query` (current: plan + mock execution)
 
 Request body (minimal):
 
@@ -127,8 +126,32 @@ Response (example):
 ```json
 {
   "traceId": "0d76ddc6-5bf8-4f8d-91d1-f6cfb6abbcfb",
-  "answer": "planned",
-  "data": {},
+  "answer": "executed",
+  "data": {
+    "sources": {
+      "postgres": {
+        "rows": [
+          { "order_count": 42 }
+        ],
+        "sql": "SELECT COUNT(*) AS order_count\\nFROM orders\\nWHERE created_at >= :monthStart AND created_at < :nextMonthStart\\n",
+        "params": {
+          "monthStart": "2025-12-01T00:00",
+          "nextMonthStart": "2026-01-01T00:00"
+        }
+      },
+      "rest": {
+        "status": 200,
+        "events": [
+          { "type": "PushEvent", "repo": "octocat/Hello-World" },
+          { "type": "IssueCommentEvent", "repo": "octocat/Hello-World" }
+        ],
+        "method": "GET",
+        "url": "https://api.github.com/users/{username}/events",
+        "headers": { "Accept": "application/vnd.github+json" },
+        "queryParams": { "username": "octocat" }
+      }
+    }
+  },
   "explanation": {
     "plan": {
       "steps": [
@@ -158,7 +181,43 @@ Response (example):
       ],
       "mergeStrategy": "template_merge_v1"
     },
-    "execution": []
+    "execution": [
+      {
+        "stepId": "step_pg_orders_this_month",
+        "connector": "postgres",
+        "status": "SUCCESS",
+        "durationMs": 0,
+        "data": {
+          "rows": [
+            { "order_count": 42 }
+          ],
+          "sql": "SELECT COUNT(*) AS order_count\\nFROM orders\\nWHERE created_at >= :monthStart AND created_at < :nextMonthStart\\n",
+          "params": {
+            "monthStart": "2025-12-01T00:00",
+            "nextMonthStart": "2026-01-01T00:00"
+          }
+        },
+        "error": null
+      },
+      {
+        "stepId": "step_rest_github_activity",
+        "connector": "rest",
+        "status": "SUCCESS",
+        "durationMs": 0,
+        "data": {
+          "status": 200,
+          "events": [
+            { "type": "PushEvent", "repo": "octocat/Hello-World" },
+            { "type": "IssueCommentEvent", "repo": "octocat/Hello-World" }
+          ],
+          "method": "GET",
+          "url": "https://api.github.com/users/{username}/events",
+          "headers": { "Accept": "application/vnd.github+json" },
+          "queryParams": { "username": "octocat" }
+        },
+        "error": null
+      }
+    ]
   }
 }
 ```
