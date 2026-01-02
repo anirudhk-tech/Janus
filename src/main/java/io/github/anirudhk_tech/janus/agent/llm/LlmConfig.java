@@ -27,4 +27,19 @@ public class LlmConfig {
             .requestFactory((ClientHttpRequestFactory) factory)
             .build();
     }
+
+    @Bean
+    RestClient openaiRestClient(LlmProperties props) {
+        HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(props.getTimeout())
+            .build();
+
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(props.getTimeout());
+
+        return RestClient.builder()
+            .baseUrl(props.getOpenai().getBaseUrl().toString())
+            .requestFactory((ClientHttpRequestFactory) factory)
+            .build();
+    }
 }

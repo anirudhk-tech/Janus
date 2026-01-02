@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.anirudhk_tech.janus.agent.llm.LlmClient;
 import io.github.anirudhk_tech.janus.api.QueryRequest;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
-import io.github.anirudhk_tech.janus.plan.HttpRequestStep;
 import io.github.anirudhk_tech.janus.plan.PlanStep;
 import io.github.anirudhk_tech.janus.plan.SqlQueryStep;
 
@@ -60,29 +59,26 @@ public final class LlmQueryAgent implements QueryAgent {
 
             if (step instanceof SqlQueryStep sql) {
                 if (sql.sql() == null || sql.sql().isBlank()) throw new IllegalArgumentException("SqlQueryStep.sql is required");
-            } else if (step instanceof HttpRequestStep http) {
-                if (http.method() == null || http.method().isBlank()) throw new IllegalArgumentException("HttpRequestStep.method is required");
-                if (http.url() == null || http.url().isBlank()) throw new IllegalArgumentException("HttpRequestStep.url is required");
+            } else {
+                throw new IllegalArgumentException("Unsupported PlanStep type: " + step.getClass().getName());
             }
         }
     }
 
     private static String systemPrompt() {
         return String.join("\n", List.of(
-            "You are Janus, a query planner. Output ONLY valid JSON. No markdown, no code fences.",
-            "Return a single JSON object matching this schema exactly:",
-            "{",
-            "  \"steps\": [",
-            "    { \"type\": \"sql\",  \"stepId\": \"...\", \"connector\": \"postgres\", \"sql\": \"...\", \"params\": {\"k\":\"v\"} },",
-            "    { \"type\": \"http\", \"stepId\": \"...\", \"connector\": \"rest\", \"method\": \"GET\", \"url\": \"...\", \"headers\": {\"k\":\"v\"}, \"queryParams\": {\"k\":\"v\"} }",
-            "  ],",
-            "  \"mergeStrategy\": \"template_merge_v1\"",
-            "}",
-            "Constraints:",
-            "- connector must be exactly: postgres or rest",
-            "- SQL must be read-only (SELECT...) and parameterized (values go in params)",
-            "- HTTP method must be GET for now",
-            "- Keep plans small (1-3 steps)"
+            """
+            Return ONLY a JSON object that matches this schema:
+            {
+            "steps": [ ... one or more PlanStep objects ... ],
+            "mergeStrategy": "template_merge_v1"
+            }
+
+            Each steps[i] MUST be one of:
+            - type="sql": { "type":"sql", "stepId":"...", "connector":"postgres", "sql":"...", "params":{...} }
+
+            You may return 1..N steps depending on the question. Prefer fewer steps.
+            """
         ));
     }
 

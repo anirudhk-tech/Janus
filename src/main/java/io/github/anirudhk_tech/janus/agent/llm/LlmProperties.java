@@ -11,6 +11,7 @@ public class LlmProperties {
     private String provider = "gemini";
     private Duration timeout = Duration.ofSeconds(10);
     private final Gemini gemini = new Gemini();
+    private final OpenAi openai = new OpenAi();
 
     public String getProvider() { return provider; }
     public void setProvider(String provider) { this.provider = provider; }
@@ -19,11 +20,28 @@ public class LlmProperties {
     public void setTimeout(Duration timeout) { this.timeout = timeout; }
 
     public Gemini getGemini() { return gemini; }
+    public OpenAi getOpenai() { return openai; }
 
     public static final class Gemini {
 
         private URI baseUrl = URI.create("https://generativelanguage.googleapis.com");
         private String model = "gemini-2.0-flash";
+        private String apiKey;
+
+        public URI getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(URI baseUrl) { this.baseUrl = baseUrl; }
+
+        public String getModel() { return model; }
+        public void setModel(String model) { this.model = model; }
+
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+    }
+
+    public static final class OpenAi {
+
+        private URI baseUrl = URI.create("https://api.openai.com");
+        private String model = "gpt-4o-mini";
         private String apiKey;
 
         public URI getBaseUrl() { return baseUrl; }

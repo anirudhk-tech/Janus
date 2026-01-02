@@ -6,7 +6,10 @@ janus:
   agent:
     mode: llm
   llm:
-    provider: gemini
+    provider: openai
     gemini:
       api-key: ${GEMINI_API_KEY:}
-      model: gemini-2.0-flash
+      model: gemini-2.0-flash-lite
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: gpt-4o-mini

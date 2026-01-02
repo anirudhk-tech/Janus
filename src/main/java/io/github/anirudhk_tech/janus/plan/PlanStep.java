@@ -11,11 +11,10 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 @JsonSubTypes({
     @JsonSubTypes.Type(value = SqlQueryStep.class, name = "sql"),
-    @JsonSubTypes.Type(value = HttpRequestStep.class, name = "http")
 })
 
 public sealed interface PlanStep 
-    permits SqlQueryStep, HttpRequestStep {
+    permits SqlQueryStep {
     
         String stepId();
 

@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 import io.github.anirudhk_tech.janus.api.QueryRequest;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
-import io.github.anirudhk_tech.janus.plan.HttpRequestStep; 
 import io.github.anirudhk_tech.janus.plan.PlanStep; 
 import io.github.anirudhk_tech.janus.plan.SqlQueryStep; 
 
@@ -36,17 +35,7 @@ public class RuleBasedQueryAgent implements QueryAgent {
                 "nextMonthStart", thisMonth.plusMonths(1).atDay(1).atStartOfDay().toString()
             )
         );
-
-        PlanStep restStep = new HttpRequestStep(
-            "step_rest_github_activity",
-            "rest",
-            "GET",
-            "https://api.github.com/users/{username}/events",
-            Map.of("Accept", "application/vnd.github+json"),
-            Map.of("username", "octocat")
-        );
-
-        List<PlanStep> steps = List.of(postgresStep, restStep);
+        List<PlanStep> steps = List.of(postgresStep);
 
         return new ExecutionPlan(steps, "template_merge_v1");
     }

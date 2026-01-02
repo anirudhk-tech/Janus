@@ -3,6 +3,7 @@ package io.github.anirudhk_tech.janus.agent.llm;
 import java.util.List;
 import java.util.Objects;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,7 @@ public class GeminiLlmClient implements LlmClient {
     private final RestClient restClient;
     private final LlmProperties props;
 
-    public GeminiLlmClient(RestClient geminiRestClient, ObjectMapper objectMapper, LlmProperties props) {
+    public GeminiLlmClient(@Qualifier("geminiRestClient") RestClient geminiRestClient, ObjectMapper objectMapper, LlmProperties props) {
         this.restClient = Objects.requireNonNull(geminiRestClient, "geminiRestClient is required");
         Objects.requireNonNull(objectMapper, "objectMapper is required");
         this.props = Objects.requireNonNull(props, "props is required");
@@ -40,7 +41,7 @@ public class GeminiLlmClient implements LlmClient {
 
         try {
             GeminiGenerateContentResponse response = restClient.post()
-                .uri("/v1beta/models/{model}:generateContent", props.getGemini().getModel())
+                .uri("/v1/models/{model}:generateContent", props.getGemini().getModel())
                 .header("x-goog-api-key", apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
@@ -103,10 +104,10 @@ public class GeminiLlmClient implements LlmClient {
         GenerationConfig generationConfig
     ) {
         static GeminiGenerateContentRequest forPrompts(String systemPrompt, String userPrompt) {
-            // Content sys = Content.system(systemPrompt);
+            Content sys = Content.system(systemPrompt);
             Content user = Content.user(userPrompt);
             GenerationConfig cfg = new GenerationConfig(0.0);
-            return new GeminiGenerateContentRequest(List.of(user), cfg);
+            return new GeminiGenerateContentRequest(List.of(sys, user), cfg);
         }
     }
 
