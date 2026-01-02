@@ -5,6 +5,7 @@ import java.util.Map;
 public record SqlQueryStep (
     String stepId,
     String connector,
+    String sourceId,
     String sql,
     Map<String, Object> params
 ) implements PlanStep {

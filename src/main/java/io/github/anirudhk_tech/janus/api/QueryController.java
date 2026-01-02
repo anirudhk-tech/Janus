@@ -33,7 +33,7 @@ public class QueryController {
 
     @PostMapping("/query")
     public QueryResponse query(@Valid @RequestBody QueryRequest request) {
-        String traceId = UUID.randomUUID().toString(); // mock for now
+        String traceId = UUID.randomUUID().toString();
         ExecutionPlan plan = queryAgent.buildPlan(request.question(), request.options());
         ExecutionContext context = new ExecutionContext(traceId, Instant.now(clock), clock);
         List<StepExecutionResult> execution = federationExecutor.execute(plan, context, request.options() == null ? null : request.options().timeoutMs());

@@ -1,6 +1,8 @@
 package io.github.anirudhk_tech.janus.agent;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.anirudhk_tech.janus.agent.llm.LlmClient;
 import io.github.anirudhk_tech.janus.api.QueryRequest;
+import io.github.anirudhk_tech.janus.capabilities.CapabilitiesService;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
 import io.github.anirudhk_tech.janus.plan.PlanStep;
 import io.github.anirudhk_tech.janus.plan.SqlQueryStep;
@@ -21,10 +24,12 @@ public final class LlmQueryAgent implements QueryAgent {
 
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
+    private final CapabilitiesService capabilitiesService;
 
-    public LlmQueryAgent(LlmClient llmClient, ObjectMapper objectMapper) {
+    public LlmQueryAgent(LlmClient llmClient, ObjectMapper objectMapper, CapabilitiesService capabilitiesService) {
         this.llmClient = Objects.requireNonNull(llmClient, "llmClient is required");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper is required");
+        this.capabilitiesService = Objects.requireNonNull(capabilitiesService, "capabilitiesService is required");
     }
 
     @Override
@@ -59,6 +64,7 @@ public final class LlmQueryAgent implements QueryAgent {
 
             if (step instanceof SqlQueryStep sql) {
                 if (sql.sql() == null || sql.sql().isBlank()) throw new IllegalArgumentException("SqlQueryStep.sql is required");
+                if (sql.sourceId() == null || sql.sourceId().isBlank()) throw new IllegalArgumentException("SqlQueryStep.sourceId is required");
             } else {
                 throw new IllegalArgumentException("Unsupported PlanStep type: " + step.getClass().getName());
             }
@@ -75,21 +81,42 @@ public final class LlmQueryAgent implements QueryAgent {
             }
 
             Each steps[i] MUST be one of:
-            - type="sql": { "type":"sql", "stepId":"...", "connector":"postgres", "sql":"...", "params":{...} }
+            - type="sql": { "type":"sql", "stepId":"...", "connector":"<from capabilities>", "sourceId":"<from capabilities>", "sql":"...", "params":{...} }
+
+            You will receive Capabilities JSON in the user message:
+            { "sources": [ { "sourceId":"...", "connector":"...", ... }, ... ] }
+
+            Rules:
+            - connector MUST equal one of Capabilities.sources[*].connector
+            - sourceId MUST equal one of Capabilities.sources[*].sourceId
+            - The (connector, sourceId) pair MUST match a single item in Capabilities.sources
 
             You may return 1..N steps depending on the question. Prefer fewer steps.
             """
         ));
     }
 
-    private static String userPrompt(String question, QueryRequest.Options options) {
+    private String userPrompt(String question, QueryRequest.Options options) {
         String timeoutMs = (options == null || options.timeoutMs() == null) ? "null" : options.timeoutMs().toString();
+        String capabilitiesJson;
+
+        try {
+            Map<String, Object> capabilities = new HashMap<>();
+            capabilities.put("sources", capabilitiesService.sources());
+            capabilitiesJson = objectMapper.writeValueAsString(capabilities);
+
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize capabilities for LLM prompt", e);
+        }
         return String.join("\n", List.of(
             "Question:",
             question,
             "",
             "Options:",
-            "timeoutMs=" + timeoutMs
+            "timeoutMs=" + timeoutMs,
+            "",
+            "Capabilities (JSON):",
+            capabilitiesJson
         ));
     }
 }
