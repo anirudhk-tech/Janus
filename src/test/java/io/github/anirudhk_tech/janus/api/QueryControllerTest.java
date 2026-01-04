@@ -18,7 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
     "JANUS_API_KEY=test-key",
     // Disable LlmQueryAgent in tests; use TestSupportConfig's deterministic QueryAgent instead.
-    "janus.agent.mode=test"
+    "janus.agent.mode=test",
+    // Guardrails require real capabilities + schema introspection; keep tests hermetic.
+    "janus.sql.guardrails.enabled=false"
 })
 @AutoConfigureMockMvc
 @Import(TestSupportConfig.class)

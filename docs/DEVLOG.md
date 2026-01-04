@@ -84,4 +84,38 @@ This section is a quick “how we got here” timeline so the devlog doesn’t s
   - `curl ... | jq . | less -R`
   - or write to a file: `curl ... | jq . > out.json` and open in an editor.
 
+## Sun Jan 4, 2026 — Schema-aware SQL planning + execution guardrails
+
+### What we added
+
+- **Schema introspection for the LLM (allowlisted)**
+  - The LLM previously only saw `schema` + `tables` in capabilities, which encouraged `COUNT(*)` / `SELECT *`.
+  - Added a small Postgres introspector that queries `information_schema.columns` for the allowlisted tables in `janus.capabilities.sources[].sql.tables`.
+  - The LLM prompt now includes **table → columns (+ type/nullable)** so it can choose specific columns.
+
+- **In-memory caching**
+  - Introspected schemas are cached in-process (per `(connector, sourceId, schema, tables[])` key) to avoid re-hitting `information_schema` every request.
+  - Restarting the server clears the cache (expected).
+
+- **SQL guardrails (execution-time)**
+  - Added a strict validation/rewrite layer that runs before connector execution.
+  - Enforces single-statement, `SELECT`-only queries and blocks obvious dangerous keywords (DDL/DML).
+  - Enforces allowlist by rejecting references to tables not present in capabilities for that `(connector, sourceId)`.
+  - Rewrites `SELECT *` to an explicit column list when it is safe to do so (single-table; no JOIN).
+
+### Gotchas encountered
+
+- **Semicolons**
+  - Many tools/LLMs emit a trailing `;` even for a single statement.
+  - Guardrails were adjusted to allow a trailing semicolon while still rejecting true multi-statement SQL.
+
+- **Tests**
+  - Guardrails depend on real capabilities + schema introspection. MVC tests are kept hermetic by disabling guardrails via:
+    - `janus.sql.guardrails.enabled=false`
+
+### Follow-ups / next iterations
+
+- Consider a TTL/refresh mechanism for schema cache (or keep it simple until we have many sources).
+- Make `SELECT *` rewrite more capable (joins/aliases) or add a better SQL parser if needed.
+
 

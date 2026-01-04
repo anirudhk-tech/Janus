@@ -17,7 +17,6 @@ janus:
     supabase:
       sources:
         cackle:
-          # Recommended: configure these via environment variables (do not commit credentials).
           jdbc-url: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_JDBC_URL:}
           username: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_USERNAME:}
           password: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_PASSWORD:}

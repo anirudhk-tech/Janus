@@ -13,11 +13,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.springframework.stereotype.Service;
 
+import io.github.anirudhk_tech.janus.capabilities.sql.SqlStepGuardrail;
 import io.github.anirudhk_tech.janus.connectors.Connector;
 import io.github.anirudhk_tech.janus.connectors.ConnectorException;
 import io.github.anirudhk_tech.janus.connectors.ConnectorResult;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
 import io.github.anirudhk_tech.janus.plan.PlanStep;
+import io.github.anirudhk_tech.janus.plan.SqlQueryStep;
 
 @Service
 public class FederationExecutor {
@@ -25,10 +27,12 @@ public class FederationExecutor {
     private static final int DEFAULT_TIMEOUT_MS = 5_000;
     private final List<Connector> connectors;
     private final Executor executor;
+    private final Optional<SqlStepGuardrail> sqlGuardrail;
 
-    public FederationExecutor(List<Connector> connectors) {
+    public FederationExecutor(List<Connector> connectors, Optional<SqlStepGuardrail> sqlGuardrail) {
         this.connectors = List.copyOf(connectors);
         this.executor = Executors.newFixedThreadPool(8);
+        this.sqlGuardrail = sqlGuardrail == null ? Optional.empty() : sqlGuardrail;
     }
 
     public List<StepExecutionResult> execute(ExecutionPlan plan, ExecutionContext context, Integer timeoutMs) {
@@ -76,8 +80,15 @@ public class FederationExecutor {
                     return new StepExecutionResult(step.stepId(), step.connector(), StepExecutionStatus.TIMEOUT, durationMs, null, "deadline_exceeded");
                 }
 
-                Connector connector = findConnector(step);
-                ConnectorResult out = connector.execute(step, context);
+                PlanStep effectiveStep = step;
+
+                if (sqlGuardrail.isPresent() && step instanceof SqlQueryStep sql) {
+                    effectiveStep = sqlGuardrail.get().apply(sql);
+                }
+
+                Connector connector = findConnector(effectiveStep);
+                ConnectorResult out = connector.execute(effectiveStep, context);
+                
                 long durationMs = Duration.between(start, context.now()).toMillis();
                 return new StepExecutionResult(out.stepId(), out.connector(), StepExecutionStatus.SUCCESS, durationMs, out.data(), null);
             } catch (ConnectorException e) {

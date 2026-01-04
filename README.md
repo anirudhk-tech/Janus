@@ -14,7 +14,13 @@ What works today:
   - health endpoints are public
   - other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`) and return JSON `401` when missing/invalid
 - `GET /protected/ping` (protected smoke-test endpoint for API-key auth)
-- `POST /query` (protected; LLM planner → SQL execution plan → Postgres execution → JSON response with `data` + `explanation`)
+- `POST /query` (protected; LLM planner → SQL execution plan → guardrails → Postgres execution → JSON response with `data` + `explanation`)
+- Schema-aware SQL planning:
+  - the LLM is given allowlisted tables **and their columns** (introspected from Postgres) so it can select specific fields
+- SQL guardrails:
+  - only single-statement `SELECT` is allowed (no DDL/DML; no multi-statement)
+  - only allowlisted tables (from capabilities) are allowed
+  - `SELECT *` is rewritten to explicit columns when safe (single-table, no JOIN)
 
 Current constraints (by design for now):
 
@@ -26,7 +32,8 @@ Current constraints (by design for now):
 At a high level, a request to `POST /query` will:
 
 - authenticate via `X-API-Key`
-- build an explicit execution plan (currently: SQL steps only) using an LLM + configured capabilities
+- build an explicit execution plan (currently: SQL steps only) using an LLM + configured capabilities (tables + columns)
+- validate and (when safe) rewrite SQL before execution (single `SELECT`, allowlisted tables; rewrite `SELECT *`)
 - execute steps in parallel via connector implementations (currently: Postgres via JDBC)
 - return a JSON response including results (`data`) and traceability (`explanation.plan` + `explanation.execution`)
 
@@ -110,6 +117,11 @@ Models are configurable via `janus.llm.openai.model` / `janus.llm.gemini.model`.
 
 The planner (LLM) needs a list of available sources. This is **separate** from connector credentials.
 
+For SQL sources, capabilities also act as an **allowlist**:
+
+- Only tables listed under `sql.tables` may be queried.
+- Column metadata for those tables is introspected from Postgres (`information_schema.columns`) using the connector credentials, and included in the LLM prompt so it can choose specific columns.
+
 Example:
 
 ```yaml
@@ -125,6 +137,18 @@ janus:
 ```
 
 Note: `janus.capabilities.sources` must be a **list** (use `-`), not an object.
+
+### SQL guardrails (recommended)
+
+By default, Janus enforces strict SQL safety checks before execution:
+
+- only a single `SELECT` statement is allowed (a trailing `;` is allowed, but multiple statements are rejected)
+- obvious DDL/DML keywords are rejected
+- referenced tables must be present in the capabilities allowlist for that `(connector, sourceId)`
+
+To disable guardrails (not recommended outside tests/dev):
+
+- `janus.sql.guardrails.enabled=false`
 
 ### Connector config (execution credentials)
 
@@ -250,6 +274,9 @@ Notes:
 
 - `options.timeoutMs` is currently wired through to execution timeouts.
 - `options.explain` / `options.debug` exist in the request schema but are not yet used to trim/expand responses (the API currently always includes `explanation`).
+- SQL safety:
+  - multi-statement SQL is rejected by guardrails
+  - `SELECT *` may be rewritten to an explicit column list when safe (single-table, no JOIN)
 
 Validation notes:
 
@@ -277,6 +304,7 @@ Source lives under the base package `io.github.anirudhk_tech.janus`:
 - `agent`: question → plan (current: LLM-backed planner)
 - `plan`: execution plan domain model (keep Spring-free)
 - `capabilities`: planner metadata (sources, SQL hints)
+- `capabilities/sql`: schema introspection + SQL guardrails (allowlist enforcement, `SELECT *` rewrite)
 - `connectors`: adapters for external systems (currently: Postgres JDBC executor)
 - `federation`: parallel execution + timeouts + step result model
 
@@ -300,7 +328,7 @@ make test
 
 - **Next**: use `options.explain` / `options.debug` to control response size; add safety/redaction for logs and errors
 - **M2**: multi-step plans (N>1 SQL steps), improved error reporting without failing the entire request on the first step failure
-- **M3**: more connectors + merge rules + caching
+- **M3**: more connectors + merge rules + caching (TTL/persistent schema cache, caching query results)
 - **M4**: governance (tenants, per-tenant connector policies, audit log)
 
 ## Why “Janus”?
