@@ -85,14 +85,18 @@ public class FederationExecutor {
                 return new StepExecutionResult(step.stepId(), step.connector(), StepExecutionStatus.FAILURE, durationMs, null, e.getMessage());
             } catch (Exception e) {
                 long durationMs = Duration.between(start, context.now()).toMillis();
-                return new StepExecutionResult(step.stepId(), step.connector(), StepExecutionStatus.FAILURE, durationMs, null, "internal_error");
+                e.printStackTrace();
+                return new StepExecutionResult(step.stepId(), step.connector(), StepExecutionStatus.FAILURE, durationMs, null, e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         }, executor);
     }
 
     private Connector findConnector(PlanStep step) {
+        String requested = step.connector();
+        String effective = "supabase".equals(requested) ? "postgres" : requested;
+
         for (Connector c : connectors) {
-            if (c.name().equals(step.connector()) && c.supports(step)) {
+            if (c.name().equals(effective) && c.supports(step)) {
                 return c;
             }
         }

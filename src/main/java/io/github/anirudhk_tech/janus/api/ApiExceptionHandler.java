@@ -66,6 +66,7 @@ public class ApiExceptionHandler {
         body.put("status", status.value());
         body.put("error", error);
         body.put("message", "query_execution_failed");
+        body.put("detail", ex.getMessage());
         body.put("path", request.getRequestURI());
 
         return ResponseEntity.status(status).body(body);

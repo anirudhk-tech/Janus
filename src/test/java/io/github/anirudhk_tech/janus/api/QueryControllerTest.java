@@ -5,8 +5,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+
+import io.github.anirudhk_tech.janus.TestSupportConfig;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,9 +17,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "JANUS_API_KEY=test-key",
-    "janus.agent.mode=rule_based"
+    // Disable LlmQueryAgent in tests; use TestSupportConfig's deterministic QueryAgent instead.
+    "janus.agent.mode=test"
 })
 @AutoConfigureMockMvc
+@Import(TestSupportConfig.class)
 class QueryControllerTest {
 
     @Autowired

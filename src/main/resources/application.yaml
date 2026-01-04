@@ -13,3 +13,18 @@ janus:
     openai:
       api-key: ${OPENAI_API_KEY:}
       model: gpt-4o-mini
+  connectors:
+    supabase:
+      sources:
+        cackle:
+          jdbc-url: "postgresql://db.spbxiotedhttehiqrqka.supabase.co:5432/postgres?sslmode=require"
+          username: "postgres"
+          password: "Anirudh#54321"
+  capabilities:
+    sources:
+      - sourceId: cackle
+        connector: supabase
+        description: "My calendar events"
+        sql:
+          schema: public
+          tables: ["calendar_events"]

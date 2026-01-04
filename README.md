@@ -38,6 +38,12 @@ At a high level, a request to `POST /query` will:
 - Java 21+
 - GNU Make (usually available via Xcode Command Line Tools on macOS)
 
+### Devlog (notes as the project evolves)
+
+If you’re working on the codebase (or debugging local setup), see:
+
+- `docs/DEVLOG.md`
+
 ### Setup (local only)
 
 Create a local `.env` file in the repo root (do not commit it):
@@ -76,6 +82,51 @@ Note: health endpoints are public. Other endpoints require `X-API-Key` (validate
 - `JANUS_API_KEY` (required for M1)
   - Used to validate the `X-API-Key` header for protected endpoints (including `POST /query`).
   - Local dev: store it in `.env` (this repo’s `.gitignore` already ignores `.env`).
+
+### Capabilities (planner metadata)
+
+The planner (LLM) needs a list of available sources. This is **separate** from connector credentials.
+
+Example:
+
+```yaml
+janus:
+  capabilities:
+    sources:
+      - sourceId: cackle
+        connector: supabase
+        description: "Calendar events in Supabase"
+        sql:
+          schema: public
+          tables: ["calendar_events"]
+```
+
+Note: `janus.capabilities.sources` must be a **list** (use `-`), not an object.
+
+### Connector config (execution credentials)
+
+Example Supabase (Postgres) source:
+
+```yaml
+janus:
+  connectors:
+    supabase:
+      sources:
+        cackle:
+          # Do NOT embed credentials in the URL (no user:pass@host).
+          # Keep username/password separate.
+          #
+          # Also: quote values with '#' since YAML treats it as a comment otherwise.
+          jdbc-url: "postgresql://db.<project>.supabase.co:5432/postgres?sslmode=require"
+          username: "postgres"
+          password: "your-password-with-#-must-be-quoted"
+```
+
+Troubleshooting tips:
+
+- If you see `UnknownHostException: user:pass@host`, your `jdbc-url` likely includes credentials. Move them to `username`/`password`.
+- If you see password truncation, make sure any value containing `#` is quoted in YAML.
+- If the hosted DB requires TLS, add `?sslmode=require` to the URL.
 
 ### `.env` file notes
 
@@ -226,6 +277,18 @@ Validation notes:
 
 - If `question` is missing/blank, the API returns `400` with a small JSON body containing `field_errors`.
 - If you `POST /query` without a JSON body, Spring may route the failure through `/error`; since `/error` is protected, you can see a confusing `401` with `"path":"/error"`. Easiest fix in curl: always send `Content-Type: application/json` and a body (even `{}`) while testing.
+
+### Reading big JSON responses locally
+
+Pretty-print and page:
+
+```bash
+curl -sS -X POST localhost:8080/query \
+  -H "X-API-Key: $JANUS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"List full data on all calendar events","options":{"explain":true}}' \
+| jq . | less -R
+```
 
 ## API (Milestone 1 target)
 

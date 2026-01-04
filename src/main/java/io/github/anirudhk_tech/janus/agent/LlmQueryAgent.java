@@ -21,7 +21,6 @@ import io.github.anirudhk_tech.janus.plan.SqlQueryStep;
 @Service
 @ConditionalOnProperty(name = "janus.agent.mode", havingValue = "llm")
 public final class LlmQueryAgent implements QueryAgent {
-
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
     private final CapabilitiesService capabilitiesService;
@@ -40,6 +39,7 @@ public final class LlmQueryAgent implements QueryAgent {
         String userPrompt = userPrompt(question, options);
 
         String json = llmClient.generateJson(systemPrompt, userPrompt);
+
         ExecutionPlan plan = parsePlan(json);
         validatePlan(plan);
         return plan;
