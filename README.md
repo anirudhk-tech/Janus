@@ -14,22 +14,21 @@ What works today:
   - health endpoints are public
   - other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`) and return JSON `401` when missing/invalid
 - `GET /protected/ping` (protected smoke-test endpoint for API-key auth)
-- `POST /query` (protected; builds an explicit `ExecutionPlan`, executes it via mock connectors, and returns `data.sources` + `explanation.execution`)
+- `POST /query` (protected; LLM planner → SQL execution plan → Postgres execution → JSON response with `data` + `explanation`)
 
-Milestone 1 target:
+Current constraints (by design for now):
 
-- Deterministic planner → `ExecutionPlan` (shipped)
-- Parallel execution across connectors (M1: Postgres + REST) (shipped: mock connectors)
-- Explainable JSON response (plan + timings + per-step errors) (in progress)
+- **Plan steps**: only `type="sql"` (`SqlQueryStep`) is supported today.
+- **Execution connectors**: Postgres via JDBC. A logical `connector="supabase"` is supported and routed to the Postgres executor internally.
 
 ## Architecture (M1)
 
 At a high level, a request to `POST /query` will:
 
 - authenticate via `X-API-Key`
-- build an explicit execution plan (steps + parameters)
-- execute connector steps in parallel (Postgres + REST)
-- merge results into a deterministic response including timings and an explanation
+- build an explicit execution plan (currently: SQL steps only) using an LLM + configured capabilities
+- execute steps in parallel via connector implementations (currently: Postgres via JDBC)
+- return a JSON response including results (`data`) and traceability (`explanation.plan` + `explanation.execution`)
 
 ## Quickstart
 
@@ -51,6 +50,9 @@ Create a local `.env` file in the repo root (do not commit it):
 ```bash
 cat > .env <<'EOF'
 JANUS_API_KEY=dev-secret-change-me
+# Choose one provider:
+# OPENAI_API_KEY=...
+# GEMINI_API_KEY=...
 EOF
 ```
 
@@ -82,6 +84,27 @@ Note: health endpoints are public. Other endpoints require `X-API-Key` (validate
 - `JANUS_API_KEY` (required for M1)
   - Used to validate the `X-API-Key` header for protected endpoints (including `POST /query`).
   - Local dev: store it in `.env` (this repo’s `.gitignore` already ignores `.env`).
+
+### Planner mode (required)
+
+Janus requires a `QueryAgent` bean. Today, the shipped agent is `LlmQueryAgent`, enabled by:
+
+- `janus.agent.mode=llm`
+
+If you set a different value, the app will fail to start because there is no other `QueryAgent` implementation registered.
+
+### LLM provider configuration
+
+Configure one provider:
+
+- **OpenAI**:
+  - `janus.llm.provider=openai`
+  - `OPENAI_API_KEY` (via `janus.llm.openai.api-key: ${OPENAI_API_KEY:}`)
+- **Gemini**:
+  - `janus.llm.provider=gemini`
+  - `GEMINI_API_KEY` (via `janus.llm.gemini.api-key: ${GEMINI_API_KEY:}`)
+
+Models are configurable via `janus.llm.openai.model` / `janus.llm.gemini.model`.
 
 ### Capabilities (planner metadata)
 
@@ -138,7 +161,7 @@ Troubleshooting tips:
 - `GET /healthz` → `200 OK` with a simple body (`OK`)
 - `GET /actuator/health` → `200 OK` with Actuator health JSON
 - `GET /protected/ping` → `200 OK` with body `pong` (requires `X-API-Key`)
-- `POST /query` → `200 OK` with plan + execution + data (currently via mock Postgres + mock REST connectors) (requires `X-API-Key`)
+- `POST /query` → `200 OK` with plan + execution + data (requires `X-API-Key`)
 
 ### API key auth (curl examples)
 
@@ -153,7 +176,7 @@ curl -i -H 'X-API-Key: wrong' localhost:8080/protected/ping
 curl -i -H "X-API-Key: $JANUS_API_KEY" localhost:8080/protected/ping
 ```
 
-### `POST /query` (current: plan + mock execution)
+### `POST /query` (current: LLM plan + SQL execution)
 
 Request body (minimal):
 
@@ -180,26 +203,12 @@ Response (example):
   "answer": "executed",
   "data": {
     "sources": {
-      "postgres": {
+      "supabase": {
         "rows": [
-          { "order_count": 42 }
+          { "event_count": 16 }
         ],
-        "sql": "SELECT COUNT(*) AS order_count\\nFROM orders\\nWHERE created_at >= :monthStart AND created_at < :nextMonthStart\\n",
-        "params": {
-          "monthStart": "2025-12-01T00:00",
-          "nextMonthStart": "2026-01-01T00:00"
-        }
-      },
-      "rest": {
-        "status": 200,
-        "events": [
-          { "type": "PushEvent", "repo": "octocat/Hello-World" },
-          { "type": "IssueCommentEvent", "repo": "octocat/Hello-World" }
-        ],
-        "method": "GET",
-        "url": "https://api.github.com/users/{username}/events",
-        "headers": { "Accept": "application/vnd.github+json" },
-        "queryParams": { "username": "octocat" }
+        "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
+        "params": {}
       }
     }
   },
@@ -208,63 +217,27 @@ Response (example):
       "steps": [
         {
           "type": "sql",
-          "stepId": "step_pg_orders_this_month",
-          "connector": "postgres",
-          "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE created_at >= :monthStart AND created_at < :nextMonthStart\n",
-          "params": {
-            "monthStart": "2025-12-01T00:00",
-            "nextMonthStart": "2026-01-01T00:00"
-          }
-        },
-        {
-          "type": "http",
-          "stepId": "step_rest_github_activity",
-          "connector": "rest",
-          "method": "GET",
-          "url": "https://api.github.com/users/{username}/events",
-          "headers": {
-            "Accept": "application/vnd.github+json"
-          },
-          "queryParams": {
-            "username": "octocat"
-          }
+          "stepId": "count_calendar_events",
+          "connector": "supabase",
+          "sourceId": "cackle",
+          "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
+          "params": {}
         }
       ],
       "mergeStrategy": "template_merge_v1"
     },
     "execution": [
       {
-        "stepId": "step_pg_orders_this_month",
-        "connector": "postgres",
+        "stepId": "count_calendar_events",
+        "connector": "supabase",
         "status": "SUCCESS",
-        "durationMs": 0,
+        "durationMs": 911,
         "data": {
           "rows": [
-            { "order_count": 42 }
+            { "event_count": 16 }
           ],
-          "sql": "SELECT COUNT(*) AS order_count\\nFROM orders\\nWHERE created_at >= :monthStart AND created_at < :nextMonthStart\\n",
-          "params": {
-            "monthStart": "2025-12-01T00:00",
-            "nextMonthStart": "2026-01-01T00:00"
-          }
-        },
-        "error": null
-      },
-      {
-        "stepId": "step_rest_github_activity",
-        "connector": "rest",
-        "status": "SUCCESS",
-        "durationMs": 0,
-        "data": {
-          "status": 200,
-          "events": [
-            { "type": "PushEvent", "repo": "octocat/Hello-World" },
-            { "type": "IssueCommentEvent", "repo": "octocat/Hello-World" }
-          ],
-          "method": "GET",
-          "url": "https://api.github.com/users/{username}/events",
-          "headers": { "Accept": "application/vnd.github+json" },
-          "queryParams": { "username": "octocat" }
+          "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
+          "params": {}
         },
         "error": null
       }
@@ -272,6 +245,11 @@ Response (example):
   }
 }
 ```
+
+Notes:
+
+- `options.timeoutMs` is currently wired through to execution timeouts.
+- `options.explain` / `options.debug` exist in the request schema but are not yet used to trim/expand responses (the API currently always includes `explanation`).
 
 Validation notes:
 
@@ -290,25 +268,17 @@ curl -sS -X POST localhost:8080/query \
 | jq . | less -R
 ```
 
-## API (Milestone 1 target)
-
-- `/query` will evolve from today’s stub into the full M1 behavior:
-  - deterministic planner output included in `explanation.plan`
-  - parallel execution across connectors with per-step timings/errors in `explanation.execution`
-  - deterministic merge rules and merged results in `data`
-
 ## Project structure
 
 Source lives under the base package `io.github.anirudhk_tech.janus`:
 
 - `api`: HTTP controllers and DTOs
 - `auth`: authentication/authorization (M1: API key)
-- `agent`: question → plan (deterministic for M1; pluggable later)
+- `agent`: question → plan (current: LLM-backed planner)
 - `plan`: execution plan domain model (keep Spring-free)
-- `connectors`: adapters for external systems (Postgres, REST, etc.)
-- `federation`: parallel execution, timeouts, partial results
-- `merge`: merge + explanation generation
-- `obs`: trace IDs, logging/metrics helpers
+- `capabilities`: planner metadata (sources, SQL hints)
+- `connectors`: adapters for external systems (currently: Postgres JDBC executor)
+- `federation`: parallel execution + timeouts + step result model
 
 ## Development
 
@@ -328,10 +298,10 @@ make test
 
 ## Roadmap
 
-- **M1**: API-key secured `/query` (contract + stub shipped), deterministic planning, Postgres + REST connectors, parallel federation, explainable response
-- **M2**: multi-step plans, caching, improved merge rules
-- **M3**: governance (tenants, per-tenant connector policies, audit log)
-- **M4**: LLM-backed planner behind `QueryAgent` with safety guardrails
+- **Next**: use `options.explain` / `options.debug` to control response size; add safety/redaction for logs and errors
+- **M2**: multi-step plans (N>1 SQL steps), improved error reporting without failing the entire request on the first step failure
+- **M3**: more connectors + merge rules + caching
+- **M4**: governance (tenants, per-tenant connector policies, audit log)
 
 ## Why “Janus”?
 

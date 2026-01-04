@@ -17,9 +17,10 @@ janus:
     supabase:
       sources:
         cackle:
-          jdbc-url: "postgresql://db.spbxiotedhttehiqrqka.supabase.co:5432/postgres?sslmode=require"
-          username: "postgres"
-          password: "Anirudh#54321"
+          # Recommended: configure these via environment variables (do not commit credentials).
+          jdbc-url: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_JDBC_URL:}
+          username: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_USERNAME:}
+          password: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_PASSWORD:}
   capabilities:
     sources:
       - sourceId: cackle
