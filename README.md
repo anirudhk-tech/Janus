@@ -152,6 +152,9 @@ To disable guardrails (not recommended outside tests/dev):
 
 ### Connector config (execution credentials)
 
+**Warning**: Do **NOT** commit database credentials (or any secrets) into `application.yaml`.
+Use environment variables (or a local `.env`) and reference them from YAML with `${...}` placeholders.
+
 Example Supabase (Postgres) source:
 
 ```yaml
@@ -160,6 +163,11 @@ janus:
     supabase:
       sources:
         cackle:
+          # NEVER commit secrets into application.yaml. Prefer env vars:
+          #   jdbc-url: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_JDBC_URL:}
+          #   username: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_USERNAME:}
+          #   password: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_PASSWORD:}
+          #
           # Do NOT embed credentials in the URL (no user:pass@host).
           # Keep username/password separate.
           #
