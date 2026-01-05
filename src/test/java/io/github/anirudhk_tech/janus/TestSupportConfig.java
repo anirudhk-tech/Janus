@@ -36,7 +36,7 @@ public class TestSupportConfig {
                 "SELECT 1 AS ok",
                 Map.of()
             )),
-            "template_merge_v1"
+            "json-shallow-merge-v1"
         );
     }
 

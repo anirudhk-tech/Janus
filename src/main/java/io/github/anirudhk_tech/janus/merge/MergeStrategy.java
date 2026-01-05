@@ -1,0 +1,12 @@
+package io.github.anirudhk_tech.janus.merge;
+
+import java.util.List;
+import java.util.Map;
+
+import io.github.anirudhk_tech.janus.federation.StepExecutionResult;
+import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
+
+public interface MergeStrategy {
+    String name();
+    Map<String, Object> merge(ExecutionPlan plan, List<StepExecutionResult> execution);
+}

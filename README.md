@@ -236,12 +236,21 @@ Response (example):
   "data": {
     "sources": {
       "supabase": {
-        "rows": [
-          { "event_count": 16 }
-        ],
-        "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
-        "params": {}
+        "count_calendar_events": {
+          "rows": [
+            { "event_count": 16 }
+          ],
+          "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
+          "params": {}
+        }
       }
+    },
+    "merged": {
+      "rows": [
+        { "event_count": 16 }
+      ],
+      "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
+      "params": {}
     }
   },
   "explanation": {
@@ -256,7 +265,7 @@ Response (example):
           "params": {}
         }
       ],
-      "mergeStrategy": "template_merge_v1"
+      "mergeStrategy": "json-shallow-merge-v1"
     },
     "execution": [
       {
@@ -282,6 +291,10 @@ Notes:
 
 - `options.timeoutMs` is currently wired through to execution timeouts.
 - `options.explain` / `options.debug` exist in the request schema but are not yet used to trim/expand responses (the API currently always includes `explanation`).
+- Merge:
+  - Merge strategy is **server-controlled** via `janus.merge.strategy` (see `application.yaml`).
+  - The planner/LLM does **not** decide merge strategy; it only emits plan steps.
+  - `data.sources` is keyed by `connector` and then `stepId` to avoid overwrites for multi-step plans.
 - SQL safety:
   - multi-statement SQL is rejected by guardrails
   - `SELECT *` may be rewritten to an explicit column list when safe (single-table, no JOIN)

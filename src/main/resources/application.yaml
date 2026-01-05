@@ -5,6 +5,8 @@ spring:
 janus:
   agent:
     mode: llm
+  merge:
+    strategy: json-shallow-merge-v1
   llm:
     provider: openai
     gemini:
@@ -27,4 +29,4 @@ janus:
         description: "My calendar events"
         sql:
           schema: public
-          tables: ["calendar_events"]
+          tables: ["calendar_events", "links"]

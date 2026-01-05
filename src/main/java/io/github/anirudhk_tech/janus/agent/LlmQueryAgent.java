@@ -82,8 +82,7 @@ public final class LlmQueryAgent implements QueryAgent {
             """
             Return ONLY a JSON object that matches this schema:
             {
-            "steps": [ ... one or more PlanStep objects ... ],
-            "mergeStrategy": "template_merge_v1"
+            "steps": [ ... one or more PlanStep objects ... ]
             }
 
             Each steps[i] MUST be one of:

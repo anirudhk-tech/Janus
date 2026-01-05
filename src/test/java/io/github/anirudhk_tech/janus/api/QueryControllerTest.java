@@ -54,6 +54,9 @@ class QueryControllerTest {
             .andExpect(jsonPath("$.explanation.plan.steps.length()").value(1))
             .andExpect(jsonPath("$.explanation.plan.steps[0].type").value("sql"))
             .andExpect(jsonPath("$.explanation.plan.steps[0].sql").exists())
-            .andExpect(jsonPath("$.data.sources.postgres").exists());
+            .andExpect(jsonPath("$.explanation.plan.mergeStrategy").value("json-shallow-merge-v1"))
+            .andExpect(jsonPath("$.data.sources.postgres.step_test_sql").exists())
+            .andExpect(jsonPath("$.data.sources.postgres.step_test_sql.rows[0].ok").value(1))
+            .andExpect(jsonPath("$.data.merged.rows[0].ok").value(1));
     }
 }

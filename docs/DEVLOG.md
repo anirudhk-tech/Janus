@@ -118,4 +118,28 @@ This section is a quick “how we got here” timeline so the devlog doesn’t s
 - Consider a TTL/refresh mechanism for schema cache (or keep it simple until we have many sources).
 - Make `SELECT *` rewrite more capable (joins/aliases) or add a better SQL parser if needed.
 
+## Mon Jan 5, 2026 — Merge strategies + output shape direction
+
+### What we added
+
+- **Merge strategy plugin point**
+  - Introduced `MergeStrategy` + `MergeService` under `io.github.anirudhk_tech.janus.merge`.
+  - Added first strategy: `json-shallow-merge-v1` (top-level map merge; key collisions get suffixed: `key`, `key_1`, `key_2`, ...).
+
+- **Server-controlled merge selection**
+  - Merge selection is now configured via `janus.merge.strategy` in `application.yaml`.
+  - Planner/LLM no longer emits or decides merge strategy (it only emits `steps`).
+
+- **Response structure tweak to avoid overwrites**
+  - `data.sources` is now shaped as `connector -> stepId -> data` so multi-step plans against the same connector do not overwrite each other.
+  - `data.merged` contains the merged output (strategy-driven).
+
+### Next: make the API response compact by default
+
+- Current responses are too verbose/ugly for typical clients.
+- Desired direction:
+  - Default `options.explain=false` (or omit `explanation`) for the common case.
+  - Return a compact, domain-shaped `data` payload (e.g. keys like `"providers"`, `"links"`, `"events"`) with **no raw SQL/params/rows metadata**.
+  - Move execution details (raw SQL, params, per-step rows, timings, etc.) under `explanation` when `explain=true`.
+
 
