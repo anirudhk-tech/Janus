@@ -3,6 +3,7 @@ package io.github.anirudhk_tech.janus.api;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.anirudhk_tech.janus.federation.StepExecutionResult;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
 
@@ -10,6 +11,7 @@ public record QueryResponse (
     String traceId,
     String answer,
     Map<String, Object> data,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     Explanation explanation
 ) {
     public record Explanation (

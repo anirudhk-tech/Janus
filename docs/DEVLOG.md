@@ -142,4 +142,20 @@ This section is a quick “how we got here” timeline so the devlog doesn’t s
   - Return a compact, domain-shaped `data` payload (e.g. keys like `"providers"`, `"links"`, `"events"`) with **no raw SQL/params/rows metadata**.
   - Move execution details (raw SQL, params, per-step rows, timings, etc.) under `explanation` when `explain=true`.
 
+## Tue Jan 6, 2026 — Explain gating + deep merge strategy
+
+### What we added
+
+- **`options.explain` now controls response verbosity**
+  - `POST /query` now only includes the `explanation` object when `options.explain=true`.
+  - When not requested, `explanation` is omitted from the JSON response (not present as `null`).
+
+- **New merge strategy: `json-deep-merge-v1`**
+  - Added `JsonDeepMergeV1` as a `MergeStrategy`.
+  - Semantics:
+    - map + map: deep/recursive merge
+    - list + list: concatenate
+    - non-mergeable collisions: preserve both values by suffixing keys (`key`, `key_1`, `key_2`, ...)
+  - Enable via `janus.merge.strategy=json-deep-merge-v1`.
+
 

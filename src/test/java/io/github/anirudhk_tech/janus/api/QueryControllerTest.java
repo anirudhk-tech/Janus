@@ -19,6 +19,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "JANUS_API_KEY=test-key",
     // Disable LlmQueryAgent in tests; use TestSupportConfig's deterministic QueryAgent instead.
     "janus.agent.mode=test",
+    // Keep tests independent of checked-in application.yaml defaults.
+    "janus.merge.strategy=json-shallow-merge-v1",
     // Guardrails require real capabilities + schema introspection; keep tests hermetic.
     "janus.sql.guardrails.enabled=false"
 })
@@ -39,12 +41,29 @@ class QueryControllerTest {
     }
 
     @Test
-    void correctKey_validBody_is200_andReturnsTraceIdAndAnswer() throws Exception {
+    void correctKey_validBody_is200_andReturnsTraceIdAndAnswer_withoutExplanationByDefault() throws Exception {
         mvc.perform(
             post("/query")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"question\":\"hello\"}")
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.traceId").exists())
+            .andExpect(jsonPath("$.traceId").isNotEmpty())
+            .andExpect(jsonPath("$.answer").value("executed"))
+            .andExpect(jsonPath("$.explanation").doesNotExist())
+            .andExpect(jsonPath("$.data.sources").doesNotExist())
+            .andExpect(jsonPath("$.data.merged.rows[0].ok").value(1));
+    }
+
+    @Test
+    void correctKey_explainTrue_includesExplanation() throws Exception {
+        mvc.perform(
+            post("/query")
+                .header("X-API-Key", "test-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"question\":\"hello\",\"options\":{\"explain\":true}}")
         )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.traceId").exists())

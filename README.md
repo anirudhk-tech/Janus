@@ -2,6 +2,14 @@
 
 Janus is an **explainable federated query and reasoning engine**. It turns a question into an execution plan, runs steps across multiple data sources in parallel, and returns merged results with traceable timings and an explanation.
 
+Docs:
+
+- [`docs/API.md`](docs/API.md) — HTTP endpoints + request/response shapes
+- [`docs/CONFIG.md`](docs/CONFIG.md) — configuration + environment variables
+- [`docs/MERGE.md`](docs/MERGE.md) — merge strategies and semantics
+- [`HELP.md`](HELP.md) — troubleshooting runbook
+- [`docs/DEVLOG.md`](docs/DEVLOG.md) — historical notes / gotchas
+
 ## Status
 
 This repo is under active development.
@@ -14,7 +22,7 @@ What works today:
   - health endpoints are public
   - other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`) and return JSON `401` when missing/invalid
 - `GET /protected/ping` (protected smoke-test endpoint for API-key auth)
-- `POST /query` (protected; LLM planner → SQL execution plan → guardrails → Postgres execution → JSON response with `data` + `explanation`)
+- `POST /query` (protected; LLM planner → SQL execution plan → guardrails → Postgres execution → JSON response with `data` and optional `explanation` when `options.explain=true`)
 - Schema-aware SQL planning:
   - the LLM is given allowlisted tables **and their columns** (introspected from Postgres) so it can select specific fields
 - SQL guardrails:
@@ -35,7 +43,7 @@ At a high level, a request to `POST /query` will:
 - build an explicit execution plan (currently: SQL steps only) using an LLM + configured capabilities (tables + columns)
 - validate and (when safe) rewrite SQL before execution (single `SELECT`, allowlisted tables; rewrite `SELECT *`)
 - execute steps in parallel via connector implementations (currently: Postgres via JDBC)
-- return a JSON response including results (`data`) and traceability (`explanation.plan` + `explanation.execution`)
+- return a JSON response including results (`data`) and optional traceability (`explanation.plan` + `explanation.execution`) when `options.explain=true`
 
 ## Quickstart
 
@@ -43,12 +51,6 @@ At a high level, a request to `POST /query` will:
 
 - Java 21+
 - GNU Make (usually available via Xcode Command Line Tools on macOS)
-
-### Devlog (notes as the project evolves)
-
-If you’re working on the codebase (or debugging local setup), see:
-
-- `docs/DEVLOG.md`
 
 ### Setup (local only)
 
@@ -84,236 +86,16 @@ curl -i localhost:8080/actuator/health
 
 Note: health endpoints are public. Other endpoints require `X-API-Key` (validated against `JANUS_API_KEY`).
 
-## Configuration
+## API quick usage
 
-### Environment variables
-
-- `JANUS_API_KEY` (required for M1)
-  - Used to validate the `X-API-Key` header for protected endpoints (including `POST /query`).
-  - Local dev: store it in `.env` (this repo’s `.gitignore` already ignores `.env`).
-
-### Planner mode (required)
-
-Janus requires a `QueryAgent` bean. Today, the shipped agent is `LlmQueryAgent`, enabled by:
-
-- `janus.agent.mode=llm`
-
-If you set a different value, the app will fail to start because there is no other `QueryAgent` implementation registered.
-
-### LLM provider configuration
-
-Configure one provider:
-
-- **OpenAI**:
-  - `janus.llm.provider=openai`
-  - `OPENAI_API_KEY` (via `janus.llm.openai.api-key: ${OPENAI_API_KEY:}`)
-- **Gemini**:
-  - `janus.llm.provider=gemini`
-  - `GEMINI_API_KEY` (via `janus.llm.gemini.api-key: ${GEMINI_API_KEY:}`)
-
-Models are configurable via `janus.llm.openai.model` / `janus.llm.gemini.model`.
-
-### Capabilities (planner metadata)
-
-The planner (LLM) needs a list of available sources. This is **separate** from connector credentials.
-
-For SQL sources, capabilities also act as an **allowlist**:
-
-- Only tables listed under `sql.tables` may be queried.
-- Column metadata for those tables is introspected from Postgres (`information_schema.columns`) using the connector credentials, and included in the LLM prompt so it can choose specific columns.
-
-Example:
-
-```yaml
-janus:
-  capabilities:
-    sources:
-      - sourceId: cackle
-        connector: supabase
-        description: "Calendar events in Supabase"
-        sql:
-          schema: public
-          tables: ["calendar_events"]
-```
-
-Note: `janus.capabilities.sources` must be a **list** (use `-`), not an object.
-
-### SQL guardrails (recommended)
-
-By default, Janus enforces strict SQL safety checks before execution:
-
-- only a single `SELECT` statement is allowed (a trailing `;` is allowed, but multiple statements are rejected)
-- obvious DDL/DML keywords are rejected
-- referenced tables must be present in the capabilities allowlist for that `(connector, sourceId)`
-
-To disable guardrails (not recommended outside tests/dev):
-
-- `janus.sql.guardrails.enabled=false`
-
-### Connector config (execution credentials)
-
-**Warning**: Do **NOT** commit database credentials (or any secrets) into `application.yaml`.
-Use environment variables (or a local `.env`) and reference them from YAML with `${...}` placeholders.
-
-Example Supabase (Postgres) source:
-
-```yaml
-janus:
-  connectors:
-    supabase:
-      sources:
-        cackle:
-          # NEVER commit secrets into application.yaml. Prefer env vars:
-          #   jdbc-url: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_JDBC_URL:}
-          #   username: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_USERNAME:}
-          #   password: ${JANUS_CONNECTORS_SUPABASE_SOURCES_CACKLE_PASSWORD:}
-          #
-          # Do NOT embed credentials in the URL (no user:pass@host).
-          # Keep username/password separate.
-          #
-          # Also: quote values with '#' since YAML treats it as a comment otherwise.
-          jdbc-url: "postgresql://db.<project>.supabase.co:5432/postgres?sslmode=require"
-          username: "postgres"
-          password: "your-password-with-#-must-be-quoted"
-```
-
-Troubleshooting tips:
-
-- If you see `UnknownHostException: user:pass@host`, your `jdbc-url` likely includes credentials. Move them to `username`/`password`.
-- If you see password truncation, make sure any value containing `#` is quoted in YAML.
-- If the hosted DB requires TLS, add `?sslmode=require` to the URL.
-
-### `.env` file notes
-
-- `.env` is a **local development convenience**. It is loaded by the Makefile and exported into the process environment before starting Spring Boot.
-- Do not commit `.env` (treat it like a password).
-
-## API (current)
-
-- `GET /healthz` → `200 OK` with a simple body (`OK`)
-- `GET /actuator/health` → `200 OK` with Actuator health JSON
-- `GET /protected/ping` → `200 OK` with body `pong` (requires `X-API-Key`)
-- `POST /query` → `200 OK` with plan + execution + data (requires `X-API-Key`)
-
-### API key auth (curl examples)
-
-```bash
-# Missing key -> 401 JSON
-curl -i localhost:8080/protected/ping
-
-# Wrong key -> 401 JSON
-curl -i -H 'X-API-Key: wrong' localhost:8080/protected/ping
-
-# Correct key -> 200 pong
-curl -i -H "X-API-Key: $JANUS_API_KEY" localhost:8080/protected/ping
-```
-
-### `POST /query` (current: LLM plan + SQL execution)
-
-Request body (minimal):
-
-```json
-{
-  "question": "hello"
-}
-```
-
-Example:
-
-```bash
-curl -i -X POST localhost:8080/query \
-  -H "X-API-Key: $JANUS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"question":"hello"}'
-```
-
-Response (example):
-
-```json
-{
-  "traceId": "0d76ddc6-5bf8-4f8d-91d1-f6cfb6abbcfb",
-  "answer": "executed",
-  "data": {
-    "sources": {
-      "supabase": {
-        "count_calendar_events": {
-          "rows": [
-            { "event_count": 16 }
-          ],
-          "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
-          "params": {}
-        }
-      }
-    },
-    "merged": {
-      "rows": [
-        { "event_count": 16 }
-      ],
-      "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
-      "params": {}
-    }
-  },
-  "explanation": {
-    "plan": {
-      "steps": [
-        {
-          "type": "sql",
-          "stepId": "count_calendar_events",
-          "connector": "supabase",
-          "sourceId": "cackle",
-          "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
-          "params": {}
-        }
-      ],
-      "mergeStrategy": "json-shallow-merge-v1"
-    },
-    "execution": [
-      {
-        "stepId": "count_calendar_events",
-        "connector": "supabase",
-        "status": "SUCCESS",
-        "durationMs": 911,
-        "data": {
-          "rows": [
-            { "event_count": 16 }
-          ],
-          "sql": "SELECT COUNT(*) AS event_count FROM public.calendar_events;",
-          "params": {}
-        },
-        "error": null
-      }
-    ]
-  }
-}
-```
-
-Notes:
-
-- `options.timeoutMs` is currently wired through to execution timeouts.
-- `options.explain` / `options.debug` exist in the request schema but are not yet used to trim/expand responses (the API currently always includes `explanation`).
-- Merge:
-  - Merge strategy is **server-controlled** via `janus.merge.strategy` (see `application.yaml`).
-  - The planner/LLM does **not** decide merge strategy; it only emits plan steps.
-  - `data.sources` is keyed by `connector` and then `stepId` to avoid overwrites for multi-step plans.
-- SQL safety:
-  - multi-statement SQL is rejected by guardrails
-  - `SELECT *` may be rewritten to an explicit column list when safe (single-table, no JOIN)
-
-Validation notes:
-
-- If `question` is missing/blank, the API returns `400` with a small JSON body containing `field_errors`.
-- If you `POST /query` without a JSON body, Spring may route the failure through `/error`; since `/error` is protected, you can see a confusing `401` with `"path":"/error"`. Easiest fix in curl: always send `Content-Type: application/json` and a body (even `{}`) while testing.
-
-### Reading big JSON responses locally
-
-Pretty-print and page:
+See the full API reference in [`docs/API.md`](docs/API.md).
 
 ```bash
 curl -sS -X POST localhost:8080/query \
   -H "X-API-Key: $JANUS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"question":"List full data on all calendar events","options":{"explain":true}}' \
-| jq . | less -R
+  -d '{"question":"How many calendar events are there?","options":{"timeoutMs":5000}}' \
+| jq .
 ```
 
 ## Project structure
@@ -347,7 +129,7 @@ make test
 
 ## Roadmap
 
-- **Next**: use `options.explain` / `options.debug` to control response size; add safety/redaction for logs and errors
+- **Next**: use `options.debug` to control response size/verbosity; add safety/redaction for logs and errors
 - **M2**: multi-step plans (N>1 SQL steps), improved error reporting without failing the entire request on the first step failure
 - **M3**: more connectors + merge rules + caching (TTL/persistent schema cache, caching query results)
 - **M4**: governance (tenants, per-tenant connector policies, audit log)

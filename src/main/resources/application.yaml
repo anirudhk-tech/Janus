@@ -6,7 +6,7 @@ janus:
   agent:
     mode: llm
   merge:
-    strategy: json-shallow-merge-v1
+    strategy: json-deep-merge-v1
   llm:
     provider: openai
     gemini:

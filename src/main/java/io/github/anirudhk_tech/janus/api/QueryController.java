@@ -56,9 +56,13 @@ public class QueryController {
         ExecutionContext context = new ExecutionContext(traceId, Instant.now(clock), clock);
         List<StepExecutionResult> execution = federationExecutor.execute(plan, context, request.options() == null ? null : request.options().timeoutMs());
         Map<String, Object> data = new HashMap<>();
-        data.put("sources", buildSources(execution));
+        boolean shouldExplain = request.options() != null && Boolean.TRUE.equals(request.options().explain());
+        if (shouldExplain) {
+            data.put("sources", buildSources(execution));
+        }
         data.put("merged", mergeService.merge(plan, execution));
-        return new QueryResponse(traceId, "executed", data, new QueryResponse.Explanation(plan, execution));
+        QueryResponse.Explanation explanation = shouldExplain ? new QueryResponse.Explanation(plan, execution) : null;
+        return new QueryResponse(traceId, "executed", data, explanation);
     }
 
     private Map<String, Object> buildSources(List<StepExecutionResult> execution) {
