@@ -5,7 +5,6 @@ target/
 *.iml
 .DS_Store
 
-HELP.md
 target/
 !**/src/main/**/target/
 !**/src/test/**/target/
