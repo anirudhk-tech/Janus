@@ -180,3 +180,4 @@ This section is a quick “how we got here” timeline so the devlog doesn’t s
 
 - Added `TraceContextFilter` to propagate/generate `X-Trace-Id` and put it in MDC for log correlation (also echoed back in responses).
 - Added `janus.output.color` to toggle ANSI color in SQL text output (disable for pipelines/tests).
+- Added `scripts/janus-q` helper for single-flag (`-q`) local queries with sensible defaults.

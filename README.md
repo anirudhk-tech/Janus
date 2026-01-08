@@ -12,7 +12,7 @@ Docs:
 
 ## Status
 
-This repo is under active development.
+This repo is published and usable; future changes will be iterative via issues/updates.
 
 What works today:
 
@@ -133,6 +133,22 @@ Test:
 ```bash
 make test
 ```
+
+### CLI helper
+
+For a one-flag query with defaults (localhost:8080, API key from `JANUS_API_KEY`, timeout 5000ms):
+
+```bash
+chmod +x scripts/janus-q
+./scripts/janus-q -q "Show my upcoming calendar events in the next 30 days with their details and all the links that my SaaS generated"
+```
+
+Flags:
+- `-q|--question` (required)
+- `--explain` to include explanation
+- `--json` to pipe through `jq` when the server is in JSON mode (no effect if `janus.output.sql=true`)
+
+Env overrides: `JANUS_API_URL` (default `http://localhost:8080/query`), `JANUS_API_KEY` (default `ani`), `JANUS_TIMEOUT_MS` (default `5000`).
 
 ## Roadmap
 

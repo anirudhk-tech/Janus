@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import io.github.anirudhk_tech.janus.federation.StepExecutionResult;
 
@@ -96,6 +97,9 @@ public final class SqlOutputFormatter {
             }
         }
 
+        int maxWidth = resolveMaxWidth();
+        widths = clampWidths(widths, maxWidth);
+
         String horizontal = buildHorizontal(widths, c);
         sb.append(horizontal);
         sb.append(buildHeader(columns, widths, c));
@@ -141,8 +145,9 @@ public final class SqlOutputFormatter {
         StringBuilder sb = new StringBuilder();
         sb.append(c.color("|", DIM));
         for (String col : columns) {
+            String rendered = renderCell(col, widths.get(col));
             sb.append(" ")
-              .append(c.color(pad(col, widths.get(col)), BRIGHT_YELLOW))
+              .append(c.color(rendered, BRIGHT_YELLOW))
               .append(" ")
               .append(c.color("|", DIM));
         }
@@ -155,8 +160,9 @@ public final class SqlOutputFormatter {
         sb.append(c.color("|", DIM));
         for (String col : columns) {
             String val = stringify(row == null ? null : row.get(col));
+            String rendered = renderCell(val, widths.get(col));
             sb.append(" ")
-              .append(c.color(pad(val, widths.get(col)), BRIGHT_WHITE))
+              .append(c.color(rendered, BRIGHT_WHITE))
               .append(" ")
               .append(c.color("|", DIM));
         }
@@ -172,6 +178,58 @@ public final class SqlOutputFormatter {
         if (val == null) val = "";
         if (val.length() >= width) return val;
         return val + " ".repeat(width - val.length());
+    }
+
+    private static String renderCell(String val, int width) {
+        if (val == null) val = "";
+        if (width < 1) return "";
+        if (val.length() > width) {
+            if (width == 1) return "…";
+            return val.substring(0, width - 1) + "…";
+        }
+        return pad(val, width);
+    }
+
+    private static int resolveMaxWidth() {
+        String prop = System.getProperty("janus.output.maxWidth");
+        if (prop != null) {
+            try {
+                return Math.max(40, Integer.parseInt(prop));
+            } catch (NumberFormatException ignore) {}
+        }
+        String env = System.getenv("COLUMNS");
+        if (env != null) {
+            try {
+                return Math.max(40, Integer.parseInt(env));
+            } catch (NumberFormatException ignore) {}
+        }
+        return 120;
+    }
+
+    private static Map<String, Integer> clampWidths(Map<String, Integer> widths, int maxWidth) {
+        final int minWidth = 6;
+        Map<String, Integer> out = new LinkedHashMap<>(widths);
+        while (true) {
+            int total = totalTableWidth(out);
+            if (total <= maxWidth) break;
+            Optional<Map.Entry<String, Integer>> largest =
+                out.entrySet().stream()
+                    .filter(e -> e.getValue() > minWidth)
+                    .max((a, b) -> Integer.compare(a.getValue(), b.getValue()));
+            if (largest.isEmpty()) break;
+            String key = largest.get().getKey();
+            out.put(key, out.get(key) - 1);
+        }
+        return out;
+    }
+
+    private static int totalTableWidth(Map<String, Integer> widths) {
+        int total = 1; // starting "+"
+        for (int w : widths.values()) {
+            total += (w + 2); // spaces around cell
+            total += 1; // trailing border
+        }
+        return total;
     }
 
     private static final class Colorizer {

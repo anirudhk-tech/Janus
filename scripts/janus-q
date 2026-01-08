@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Quick Janus query helper.
+# Defaults:
+# - API URL: http://localhost:8080/query (override with JANUS_API_URL)
+# - API key: value of JANUS_API_KEY (default "ani")
+# - Timeout: JANUS_TIMEOUT_MS (default 5000)
+#
+# Usage:
+#   ./scripts/janus-q -q "Your question"
+#   ./scripts/janus-q -q "Your question" --explain
+#   ./scripts/janus-q -q "Your question" --json           # request JSON output if server is in JSON mode
+#
+# Notes:
+# - Server-side text vs JSON is controlled by config (`janus.output.sql`). This script just sends the request.
+# - Set `JANUS_OUTPUT_COLOR=false` server-side if you want plain, non-ANSI text.
+
+API_URL="${JANUS_API_URL:-http://localhost:8080/query}"
+API_KEY="${JANUS_API_KEY:-ani}"
+TIMEOUT_MS="${JANUS_TIMEOUT_MS:-5000}"
+
+QUESTION=""
+EXPLAIN=false
+REQUEST_JSON=false
+
+usage() {
+  cat <<'EOF'
+Usage: janus-q -q "question" [--explain] [--json]
+
+Options:
+  -q, --question   The question to ask Janus (required)
+  --explain        Include explanation (sets options.explain=true)
+  --json           Hint that you expect JSON output (no effect if server forces text mode)
+
+Env overrides:
+  JANUS_API_URL       (default: http://localhost:8080/query)
+  JANUS_API_KEY       (default: ani)
+  JANUS_TIMEOUT_MS    (default: 5000)
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -q|--question)
+      QUESTION="${2:-}"
+      shift 2
+      ;;
+    --explain)
+      EXPLAIN=true
+      shift
+      ;;
+    --json)
+      REQUEST_JSON=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$QUESTION" ]]; then
+  echo "Error: question is required (-q|--question)" >&2
+  usage
+  exit 1
+fi
+
+PAYLOAD=$(cat <<EOF
+{
+  "question": "$QUESTION",
+  "options": {
+    "timeoutMs": $TIMEOUT_MS,
+    "explain": $( $EXPLAIN && echo true || echo false )
+  }
+}
+EOF
+)
+
+if $REQUEST_JSON; then
+  curl -sS -X POST "$API_URL" \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: $API_KEY" \
+    -d "$PAYLOAD" | jq .
+else
+  curl -sS -X POST "$API_URL" \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: $API_KEY" \
+    -d "$PAYLOAD"
+fi

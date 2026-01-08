@@ -109,4 +109,11 @@ Notes:
 - `X-Trace-Id` is propagated/echoed on responses; a new traceId is generated
   when the request does not provide one. Logs include the same traceId via MDC.
 
+### CLI helper defaults
+
+- `scripts/janus-q` uses env overrides:
+  - `JANUS_API_URL` (default `http://localhost:8080/query`)
+  - `JANUS_API_KEY` (default `ani`)
+  - `JANUS_TIMEOUT_MS` (default `5000`)
+
 
