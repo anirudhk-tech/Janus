@@ -158,4 +158,21 @@ This section is a quick “how we got here” timeline so the devlog doesn’t s
     - non-mergeable collisions: preserve both values by suffixing keys (`key`, `key_1`, `key_2`, ...)
   - Enable via `janus.merge.strategy=json-deep-merge-v1`.
 
+## Wed Jan 7, 2026 — SQL-only output mode (no merge)
+
+### What we added
+
+- **Config flag `janus.output.sql`**
+  - When `true`, `POST /query` returns `text/plain` with one block per executed step (step id/connector, SQL, params, rows rendered as a table).
+  - Skips merge + explanation entirely; response is per-step raw outputs only.
+  - Default remains JSON (with merge and optional explanation).
+
+### Tests/docs
+
+- Added `QueryControllerSqlOutputTest` to assert plaintext shape (step header, SQL, params, table, row count).
+- Updated `CONFIG.md` and `API.md` to clarify SQL mode behavior and JSON default.
+
+### Notes
+
+- If you need to pipe to `jq`, keep `janus.output.sql=false` (JSON mode). Text mode is for terminal-friendly inspection.
 

@@ -64,7 +64,11 @@ public class TestSupportConfig {
                 return new ConnectorResult(
                     sql.stepId(),
                     sql.connector(),
-                    Map.of("rows", List.of(Map.of("ok", 1)))
+                    Map.of(
+                        "rows", List.of(Map.of("ok", 1)),
+                        "sql", sql.sql(),
+                        "params", sql.params()
+                    )
                 );
             }
         };

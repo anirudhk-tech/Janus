@@ -98,6 +98,11 @@ curl -sS -X POST localhost:8080/query \
 | jq .
 ```
 
+Text vs JSON output:
+
+- Default: JSON (merge + optional explanation); great with `jq`.
+- Set `janus.output.sql=true` to get `text/plain` per-step SQL blocks (SQL, params, rows as a table) with no merge/explanation. Handy for terminal inspection; skip piping to `jq` in this mode.
+
 ## Project structure
 
 Source lives under the base package `io.github.anirudhk_tech.janus`:

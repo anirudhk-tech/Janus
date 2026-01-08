@@ -22,7 +22,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     // Keep tests independent of checked-in application.yaml defaults.
     "janus.merge.strategy=json-shallow-merge-v1",
     // Guardrails require real capabilities + schema introspection; keep tests hermetic.
-    "janus.sql.guardrails.enabled=false"
+    "janus.sql.guardrails.enabled=false",
+    // Keep default response as JSON for these tests.
+    "janus.output.sql=false"
 })
 @AutoConfigureMockMvc
 @Import(TestSupportConfig.class)

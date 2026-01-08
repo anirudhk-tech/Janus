@@ -95,4 +95,10 @@ Notes:
 - `janus.capabilities.sources` must be a YAML **list** (`- ...`), not an object.
 - For SQL sources, the listed tables are enforced as an allowlist at execution-time.
 
+### Output format
+
+- `janus.output.sql` (boolean, default `false`): when `true`, `POST /query`
+  returns `text/plain` with one block per executed step (SQL, params, rows),
+  skipping merged JSON and explanation. Useful for terminal-friendly output.
+
 

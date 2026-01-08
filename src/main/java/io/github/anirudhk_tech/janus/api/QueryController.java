@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,6 +21,8 @@ import io.github.anirudhk_tech.janus.federation.StepExecutionResult;
 import io.github.anirudhk_tech.janus.merge.MergeService;
 import io.github.anirudhk_tech.janus.merge.MergeProperties;
 import io.github.anirudhk_tech.janus.plan.ExecutionPlan;
+import io.github.anirudhk_tech.janus.output.OutputProperties;
+import io.github.anirudhk_tech.janus.output.SqlOutputFormatter;
 import jakarta.validation.Valid;
 
 @RestController
@@ -29,22 +33,25 @@ public class QueryController {
     private final Clock clock;
     private final MergeService mergeService;
     private final MergeProperties mergeProperties;
+    private final OutputProperties outputProperties;
 
     public QueryController(
         QueryAgent queryAgent,
         FederationExecutor federationExecutor,
         MergeService mergeService,
-        MergeProperties mergeProperties
+        MergeProperties mergeProperties,
+        OutputProperties outputProperties
     ) {
         this.queryAgent = queryAgent;
         this.federationExecutor = federationExecutor;
         this.clock = Clock.systemUTC();
         this.mergeService = mergeService;
         this.mergeProperties = mergeProperties;
+        this.outputProperties = outputProperties;
     }
 
     @PostMapping("/query")
-    public QueryResponse query(@Valid @RequestBody QueryRequest request) {
+    public ResponseEntity<?> query(@Valid @RequestBody QueryRequest request) {
         String traceId = UUID.randomUUID().toString();
         // Merge strategy is server-controlled (from config), not planner-controlled.
         ExecutionPlan plannerPlan = queryAgent.buildPlan(request.question(), request.options());
@@ -55,14 +62,25 @@ public class QueryController {
         ExecutionPlan plan = new ExecutionPlan(plannerPlan.steps(), effectiveMergeStrategy);
         ExecutionContext context = new ExecutionContext(traceId, Instant.now(clock), clock);
         List<StepExecutionResult> execution = federationExecutor.execute(plan, context, request.options() == null ? null : request.options().timeoutMs());
-        Map<String, Object> data = new HashMap<>();
+
+        if (outputProperties.sql()) {
+            String body = SqlOutputFormatter.format(traceId, execution);
+            return ResponseEntity
+                .ok()
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(body);
+        }
+
         boolean shouldExplain = request.options() != null && Boolean.TRUE.equals(request.options().explain());
+        Map<String, Object> merged = mergeService.merge(plan, execution);
+
+        Map<String, Object> data = new HashMap<>();
         if (shouldExplain) {
             data.put("sources", buildSources(execution));
         }
-        data.put("merged", mergeService.merge(plan, execution));
+        data.put("merged", merged);
         QueryResponse.Explanation explanation = shouldExplain ? new QueryResponse.Explanation(plan, execution) : null;
-        return new QueryResponse(traceId, "executed", data, explanation);
+        return ResponseEntity.ok(new QueryResponse(traceId, "executed", data, explanation));
     }
 
     private Map<String, Object> buildSources(List<StepExecutionResult> execution) {

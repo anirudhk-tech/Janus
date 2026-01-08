@@ -83,6 +83,13 @@ Notes:
 - `data.merged` is produced by the configured merge strategy (see [`MERGE.md`](MERGE.md)).
 - `explanation` is **only present when** `options.explain=true`.
 
+Text output mode:
+
+- When `janus.output.sql=true`, the endpoint returns `text/plain` with one
+  block per executed step: `traceId`, step id/connector, the SQL text, params,
+  and the step’s rows as a table. The merged JSON payload and `options.explain`
+  are skipped in this mode.
+
 #### Example: without explanation (default)
 
 ```bash
