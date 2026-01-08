@@ -176,3 +176,7 @@ This section is a quick “how we got here” timeline so the devlog doesn’t s
 
 - If you need to pipe to `jq`, keep `janus.output.sql=false` (JSON mode). Text mode is for terminal-friendly inspection.
 
+### Observability + polish
+
+- Added `TraceContextFilter` to propagate/generate `X-Trace-Id` and put it in MDC for log correlation (also echoed back in responses).
+- Added `janus.output.color` to toggle ANSI color in SQL text output (disable for pipelines/tests).

@@ -100,5 +100,13 @@ Notes:
 - `janus.output.sql` (boolean, default `false`): when `true`, `POST /query`
   returns `text/plain` with one block per executed step (SQL, params, rows),
   skipping merged JSON and explanation. Useful for terminal-friendly output.
+- `janus.output.color` (boolean, default `true`): controls ANSI color in SQL
+  text output. Set to `false` for plain ASCII (e.g., when piping to tools or
+  in tests that assert raw strings).
+
+### Observability
+
+- `X-Trace-Id` is propagated/echoed on responses; a new traceId is generated
+  when the request does not provide one. Logs include the same traceId via MDC.
 
 

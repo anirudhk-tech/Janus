@@ -4,5 +4,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "janus.output")
 public record OutputProperties(
-    boolean sql
+    boolean sql,
+    Boolean color
 ) {}

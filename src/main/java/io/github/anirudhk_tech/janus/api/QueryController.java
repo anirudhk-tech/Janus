@@ -64,7 +64,8 @@ public class QueryController {
         List<StepExecutionResult> execution = federationExecutor.execute(plan, context, request.options() == null ? null : request.options().timeoutMs());
 
         if (outputProperties.sql()) {
-            String body = SqlOutputFormatter.format(traceId, execution);
+            boolean colored = outputProperties.color() == null ? true : outputProperties.color();
+            String body = SqlOutputFormatter.format(traceId, execution, colored);
             return ResponseEntity
                 .ok()
                 .contentType(MediaType.TEXT_PLAIN)

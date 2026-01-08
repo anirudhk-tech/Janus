@@ -102,6 +102,8 @@ Text vs JSON output:
 
 - Default: JSON (merge + optional explanation); great with `jq`.
 - Set `janus.output.sql=true` to get `text/plain` per-step SQL blocks (SQL, params, rows as a table) with no merge/explanation. Handy for terminal inspection; skip piping to `jq` in this mode.
+- Control ANSI color in text mode with `janus.output.color` (default `true`).
+- Each request/response carries `X-Trace-Id` (generated when absent) and logs include it for correlation.
 
 ## Project structure
 

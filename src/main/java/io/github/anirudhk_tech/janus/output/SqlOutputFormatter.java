@@ -14,56 +14,61 @@ public final class SqlOutputFormatter {
     private SqlOutputFormatter() {}
 
     public static String format(String traceId, List<StepExecutionResult> execution) {
+        return format(traceId, execution, true);
+    }
+
+    public static String format(String traceId, List<StepExecutionResult> execution, boolean colored) {
         List<StepExecutionResult> safe = execution == null ? List.of() : execution;
+        Colorizer c = new Colorizer(colored);
 
         StringBuilder sb = new StringBuilder();
 
-        sb.append(color("══════ JANUS SQL OUTPUT ══════", BRIGHT_BLUE)).append("\n");
+        sb.append(c.color("══════ JANUS SQL OUTPUT ══════", BRIGHT_BLUE)).append("\n");
         if (traceId != null && !traceId.isBlank()) {
-            sb.append(color("traceId: ", DIM)).append(color(traceId, BRIGHT_WHITE)).append("\n");
+            sb.append(c.color("traceId: ", DIM)).append(c.color(traceId, BRIGHT_WHITE)).append("\n");
         }
-        sb.append(color("mode: text/plain • merge: off • explain: off", DIM)).append("\n");
+        sb.append(c.color("mode: text/plain • merge: off • explain: off", DIM)).append("\n");
 
         for (StepExecutionResult r : safe) {
             if (r == null) continue;
             Map<String, Object> data = r.data();
             sb.append("\n")
-                .append(color("▼ Step ", BRIGHT_MAGENTA))
-                .append(color(r.stepId(), BRIGHT_WHITE))
-                .append(color(" (", BRIGHT_MAGENTA))
-                .append(color(r.connector(), BRIGHT_WHITE))
-                .append(color(")", BRIGHT_MAGENTA))
-                .append(color(" • ", DIM))
-                .append(color(r.status().name().toLowerCase(), r.status().isSuccess() ? BRIGHT_GREEN : BRIGHT_RED))
-                .append(color(" • ", DIM))
-                .append(color(r.durationMs() + " ms", BRIGHT_YELLOW))
+                .append(c.color("▼ Step ", BRIGHT_MAGENTA))
+                .append(c.color(r.stepId(), BRIGHT_WHITE))
+                .append(c.color(" (", BRIGHT_MAGENTA))
+                .append(c.color(r.connector(), BRIGHT_WHITE))
+                .append(c.color(")", BRIGHT_MAGENTA))
+                .append(c.color(" • ", DIM))
+                .append(c.color(r.status().name().toLowerCase(), r.status().isSuccess() ? BRIGHT_GREEN : BRIGHT_RED))
+                .append(c.color(" • ", DIM))
+                .append(c.color(r.durationMs() + " ms", BRIGHT_YELLOW))
                 .append("\n");
 
             if (data != null) {
                 Object sql = data.get("sql");
                 if (sql instanceof String s && !s.isBlank()) {
-                    sb.append(color("SQL:", BRIGHT_CYAN)).append("\n")
-                      .append(color(s, BRIGHT_WHITE)).append("\n\n");
+                    sb.append(c.color("SQL:", BRIGHT_CYAN)).append("\n")
+                      .append(c.color(s, BRIGHT_WHITE)).append("\n\n");
                 }
 
                 Object params = data.get("params");
                 if (params instanceof Map<?, ?> m) {
-                    sb.append(color("Params: ", BRIGHT_CYAN)).append(color(m.toString(), BRIGHT_WHITE)).append("\n\n");
+                    sb.append(c.color("Params: ", BRIGHT_CYAN)).append(c.color(m.toString(), BRIGHT_WHITE)).append("\n\n");
                 }
 
                 List<Map<String, Object>> rows = extractRows(data.get("rows"));
-                appendTable(sb, rows);
+                appendTable(sb, rows, c);
             } else {
-                sb.append(color("No data\n", DIM));
+                sb.append(c.color("No data\n", DIM));
             }
         }
 
         return sb.toString();
     }
 
-    private static void appendTable(StringBuilder sb, List<Map<String, Object>> rows) {
+    private static void appendTable(StringBuilder sb, List<Map<String, Object>> rows, Colorizer c) {
         if (rows.isEmpty()) {
-            sb.append(color("Rows: 0\n", DIM));
+            sb.append(c.color("Rows: 0\n", DIM));
             return;
         }
 
@@ -75,7 +80,7 @@ public final class SqlOutputFormatter {
         }
 
         if (columns.isEmpty()) {
-            sb.append(color("Rows: ", DIM)).append(rows.size()).append(color(" (no columns)\n", DIM));
+            sb.append(c.color("Rows: ", DIM)).append(rows.size()).append(c.color(" (no columns)\n", DIM));
             return;
         }
 
@@ -91,18 +96,18 @@ public final class SqlOutputFormatter {
             }
         }
 
-        String horizontal = buildHorizontal(widths);
+        String horizontal = buildHorizontal(widths, c);
         sb.append(horizontal);
-        sb.append(buildHeader(columns, widths));
+        sb.append(buildHeader(columns, widths, c));
         sb.append(horizontal);
         for (Map<String, Object> row : rows) {
-            sb.append(buildRow(columns, widths, row));
+            sb.append(buildRow(columns, widths, row, c));
         }
         sb.append(horizontal);
-        sb.append(color("(", DIM))
-          .append(color(String.valueOf(rows.size()), BRIGHT_YELLOW))
-          .append(color(rows.size() == 1 ? " row" : " rows", DIM))
-          .append(color(")\n", DIM));
+        sb.append(c.color("(", DIM))
+          .append(c.color(String.valueOf(rows.size()), BRIGHT_YELLOW))
+          .append(c.color(rows.size() == 1 ? " row" : " rows", DIM))
+          .append(c.color(")\n", DIM));
     }
 
     private static List<Map<String, Object>> extractRows(Object candidate) {
@@ -122,38 +127,38 @@ public final class SqlOutputFormatter {
         return rows;
     }
 
-    private static String buildHorizontal(Map<String, Integer> widths) {
+    private static String buildHorizontal(Map<String, Integer> widths, Colorizer c) {
         StringBuilder sb = new StringBuilder();
-        sb.append(color("+", DIM));
+        sb.append(c.color("+", DIM));
         for (int w : widths.values()) {
-            sb.append(color("-".repeat(w + 2), DIM)).append(color("+", DIM));
+            sb.append(c.color("-".repeat(w + 2), DIM)).append(c.color("+", DIM));
         }
         sb.append("\n");
         return sb.toString();
     }
 
-    private static String buildHeader(LinkedHashSet<String> columns, Map<String, Integer> widths) {
+    private static String buildHeader(LinkedHashSet<String> columns, Map<String, Integer> widths, Colorizer c) {
         StringBuilder sb = new StringBuilder();
-        sb.append(color("|", DIM));
+        sb.append(c.color("|", DIM));
         for (String col : columns) {
             sb.append(" ")
-              .append(color(pad(col, widths.get(col)), BRIGHT_YELLOW))
+              .append(c.color(pad(col, widths.get(col)), BRIGHT_YELLOW))
               .append(" ")
-              .append(color("|", DIM));
+              .append(c.color("|", DIM));
         }
         sb.append("\n");
         return sb.toString();
     }
 
-    private static String buildRow(LinkedHashSet<String> columns, Map<String, Integer> widths, Map<String, Object> row) {
+    private static String buildRow(LinkedHashSet<String> columns, Map<String, Integer> widths, Map<String, Object> row, Colorizer c) {
         StringBuilder sb = new StringBuilder();
-        sb.append(color("|", DIM));
+        sb.append(c.color("|", DIM));
         for (String col : columns) {
             String val = stringify(row == null ? null : row.get(col));
             sb.append(" ")
-              .append(color(pad(val, widths.get(col)), BRIGHT_WHITE))
+              .append(c.color(pad(val, widths.get(col)), BRIGHT_WHITE))
               .append(" ")
-              .append(color("|", DIM));
+              .append(c.color("|", DIM));
         }
         sb.append("\n");
         return sb.toString();
@@ -169,8 +174,17 @@ public final class SqlOutputFormatter {
         return val + " ".repeat(width - val.length());
     }
 
-    private static String color(String text, String code) {
-        return code + text + RESET;
+    private static final class Colorizer {
+        private final boolean enabled;
+
+        Colorizer(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        String color(String text, String code) {
+            if (!enabled) return text;
+            return code + text + RESET;
+        }
     }
 
     // ANSI colors for a bit of flair in terminal output.

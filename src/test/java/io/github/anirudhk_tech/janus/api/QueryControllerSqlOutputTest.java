@@ -20,7 +20,8 @@ import io.github.anirudhk_tech.janus.TestSupportConfig;
     "janus.agent.mode=test",
     "janus.merge.strategy=json-shallow-merge-v1",
     "janus.sql.guardrails.enabled=false",
-    "janus.output.sql=true"
+    "janus.output.sql=true",
+    "janus.output.color=false"
 })
 @AutoConfigureMockMvc
 @Import(TestSupportConfig.class)
