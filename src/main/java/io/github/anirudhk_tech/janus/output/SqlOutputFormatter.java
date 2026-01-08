@@ -18,30 +18,43 @@ public final class SqlOutputFormatter {
 
         StringBuilder sb = new StringBuilder();
 
+        sb.append(color("══════ JANUS SQL OUTPUT ══════", BRIGHT_BLUE)).append("\n");
         if (traceId != null && !traceId.isBlank()) {
-            sb.append("traceId: ").append(traceId).append("\n");
+            sb.append(color("traceId: ", DIM)).append(color(traceId, BRIGHT_WHITE)).append("\n");
         }
+        sb.append(color("mode: text/plain • merge: off • explain: off", DIM)).append("\n");
 
         for (StepExecutionResult r : safe) {
             if (r == null) continue;
             Map<String, Object> data = r.data();
-            sb.append("\nStep ").append(r.stepId()).append(" (").append(r.connector()).append(")\n");
+            sb.append("\n")
+                .append(color("▼ Step ", BRIGHT_MAGENTA))
+                .append(color(r.stepId(), BRIGHT_WHITE))
+                .append(color(" (", BRIGHT_MAGENTA))
+                .append(color(r.connector(), BRIGHT_WHITE))
+                .append(color(")", BRIGHT_MAGENTA))
+                .append(color(" • ", DIM))
+                .append(color(r.status().name().toLowerCase(), r.status().isSuccess() ? BRIGHT_GREEN : BRIGHT_RED))
+                .append(color(" • ", DIM))
+                .append(color(r.durationMs() + " ms", BRIGHT_YELLOW))
+                .append("\n");
 
             if (data != null) {
                 Object sql = data.get("sql");
                 if (sql instanceof String s && !s.isBlank()) {
-                    sb.append("SQL:\n").append(s).append("\n\n");
+                    sb.append(color("SQL:", BRIGHT_CYAN)).append("\n")
+                      .append(color(s, BRIGHT_WHITE)).append("\n\n");
                 }
 
                 Object params = data.get("params");
                 if (params instanceof Map<?, ?> m) {
-                    sb.append("Params: ").append(m).append("\n\n");
+                    sb.append(color("Params: ", BRIGHT_CYAN)).append(color(m.toString(), BRIGHT_WHITE)).append("\n\n");
                 }
 
                 List<Map<String, Object>> rows = extractRows(data.get("rows"));
                 appendTable(sb, rows);
             } else {
-                sb.append("No data\n");
+                sb.append(color("No data\n", DIM));
             }
         }
 
@@ -50,7 +63,7 @@ public final class SqlOutputFormatter {
 
     private static void appendTable(StringBuilder sb, List<Map<String, Object>> rows) {
         if (rows.isEmpty()) {
-            sb.append("Rows: 0\n");
+            sb.append(color("Rows: 0\n", DIM));
             return;
         }
 
@@ -62,7 +75,7 @@ public final class SqlOutputFormatter {
         }
 
         if (columns.isEmpty()) {
-            sb.append("Rows: ").append(rows.size()).append(" (no columns)\n");
+            sb.append(color("Rows: ", DIM)).append(rows.size()).append(color(" (no columns)\n", DIM));
             return;
         }
 
@@ -86,7 +99,10 @@ public final class SqlOutputFormatter {
             sb.append(buildRow(columns, widths, row));
         }
         sb.append(horizontal);
-        sb.append("(").append(rows.size()).append(rows.size() == 1 ? " row" : " rows").append(")\n");
+        sb.append(color("(", DIM))
+          .append(color(String.valueOf(rows.size()), BRIGHT_YELLOW))
+          .append(color(rows.size() == 1 ? " row" : " rows", DIM))
+          .append(color(")\n", DIM));
     }
 
     private static List<Map<String, Object>> extractRows(Object candidate) {
@@ -108,9 +124,9 @@ public final class SqlOutputFormatter {
 
     private static String buildHorizontal(Map<String, Integer> widths) {
         StringBuilder sb = new StringBuilder();
-        sb.append("+");
+        sb.append(color("+", DIM));
         for (int w : widths.values()) {
-            sb.append("-".repeat(w + 2)).append("+");
+            sb.append(color("-".repeat(w + 2), DIM)).append(color("+", DIM));
         }
         sb.append("\n");
         return sb.toString();
@@ -118,9 +134,12 @@ public final class SqlOutputFormatter {
 
     private static String buildHeader(LinkedHashSet<String> columns, Map<String, Integer> widths) {
         StringBuilder sb = new StringBuilder();
-        sb.append("|");
+        sb.append(color("|", DIM));
         for (String col : columns) {
-            sb.append(" ").append(pad(col, widths.get(col))).append(" |");
+            sb.append(" ")
+              .append(color(pad(col, widths.get(col)), BRIGHT_YELLOW))
+              .append(" ")
+              .append(color("|", DIM));
         }
         sb.append("\n");
         return sb.toString();
@@ -128,10 +147,13 @@ public final class SqlOutputFormatter {
 
     private static String buildRow(LinkedHashSet<String> columns, Map<String, Integer> widths, Map<String, Object> row) {
         StringBuilder sb = new StringBuilder();
-        sb.append("|");
+        sb.append(color("|", DIM));
         for (String col : columns) {
             String val = stringify(row == null ? null : row.get(col));
-            sb.append(" ").append(pad(val, widths.get(col))).append(" |");
+            sb.append(" ")
+              .append(color(pad(val, widths.get(col)), BRIGHT_WHITE))
+              .append(" ")
+              .append(color("|", DIM));
         }
         sb.append("\n");
         return sb.toString();
@@ -146,4 +168,19 @@ public final class SqlOutputFormatter {
         if (val.length() >= width) return val;
         return val + " ".repeat(width - val.length());
     }
+
+    private static String color(String text, String code) {
+        return code + text + RESET;
+    }
+
+    // ANSI colors for a bit of flair in terminal output.
+    private static final String RESET = "\u001B[0m";
+    private static final String BRIGHT_WHITE = "\u001B[97m";
+    private static final String BRIGHT_BLUE = "\u001B[94m";
+    private static final String BRIGHT_CYAN = "\u001B[96m";
+    private static final String BRIGHT_MAGENTA = "\u001B[95m";
+    private static final String BRIGHT_YELLOW = "\u001B[93m";
+    private static final String BRIGHT_GREEN = "\u001B[92m";
+    private static final String BRIGHT_RED = "\u001B[91m";
+    private static final String DIM = "\u001B[2m";
 }
